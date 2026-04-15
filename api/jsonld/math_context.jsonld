@@ -1,0 +1,13 @@
+{
+  "@context": {
+    "id": "@id",
+    "type": "@type",
+    "ModelCard": "https://socioprophet.dev/ont/atlas#ModelCard",
+    "model": "https://socioprophet.dev/ont/atlas#model",
+    "data": "https://socioprophet.dev/ont/atlas#data",
+    "metrics": "https://socioprophet.dev/ont/atlas#metrics",
+    "onnx": "https://socioprophet.dev/ont/atlas#onnx",
+    "ledger": "https://socioprophet.dev/ont/atlas#ledger",
+    "policy_ref": "https://socioprophet.dev/ont/atlas#policy_ref"
+  }
+}

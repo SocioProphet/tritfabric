@@ -1,0 +1,10 @@
+# macOS
+.DS_Store
+
+# upstream sources (fetched, not vendored)
+third_party/
+
+# python
+.venv/
+__pycache__/
+*.pyc

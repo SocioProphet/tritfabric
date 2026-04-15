@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "tritfabric-server.fullname" . }}-policy
+data:
+  policy.yaml: |
+    version: 0.1
+    security:
+      opt_in_required: {{ .Values.policy.optInRequired }}
+      opt_in_token_sha256: "{{ .Values.policy.optInTokenSha256 }}"
+      allow_tcp: true
+    scheduler:
+      tenant_weights: {default: 1.0}
+      auto_promotion: {metric_threshold: 0.80, metric_name: "val_score"}
+    promotion:
+      shacl_enforce: true
+      onnx_cosine_threshold: 0.995
+      eval_delta_threshold: 0.01
+    artifacts:
+      root: "artifacts"

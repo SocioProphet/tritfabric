@@ -1,0 +1,7 @@
+task: rl
+entrypoint: ppo-enc-ac
+metric: reward
+mode: max
+resources:
+  CPU: 4
+  GPU: 0

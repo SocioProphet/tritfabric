@@ -1,0 +1,19 @@
+name: no-raster-images
+on:
+  push:
+  pull_request:
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fail if raster images are tracked
+        run: |
+          set -euo pipefail
+          bad="$(git ls-files | grep -E "\\.(png|jpg|jpeg|webp|gif)$" || true)"
+          if [ -n "$bad" ]; then
+            echo "ERR: Raster images are not allowed in this repo (commit Mermaid/TTL sources instead):"
+            echo "$bad"
+            exit 2
+          fi
+          echo "OK: no raster images tracked"

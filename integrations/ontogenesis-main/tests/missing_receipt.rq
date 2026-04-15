@@ -1,0 +1,7 @@
+PREFIX hdt: <https://socioprophet.dev/ont/ontogenesis#>
+
+# Invariant: anything marked DELIVERED must have at least one receipt.
+SELECT ?res WHERE {
+  ?res hdt:hasStatus hdt:DELIVERED .
+  FILTER NOT EXISTS { ?res hdt:hasReceipt ?r . }
+}

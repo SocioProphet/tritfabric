@@ -1,0 +1,332 @@
+workloads:
+- id: 1
+  name: W01
+  category: ingest
+  description: Append Avro events (1KB) @5k/s sustained; 7-day retention metadata.
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 2
+  name: W02
+  category: ingest
+  description: Append Avro events (4KB) @20k/s bursty (5x spikes).
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 3
+  name: W03
+  category: ingest
+  description: Upsert incident state (small doc) @500/s (transactional).
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 4
+  name: W04
+  category: ingest
+  description: Upsert incident state (large enrichment doc ~50KB) @100/s.
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 5
+  name: W05
+  category: ingest
+  description: Bulk insert 1M incident-history rows (batch).
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 6
+  name: W06
+  category: ingest
+  description: Write 10k artifact metadata rows referencing object store hashes.
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 7
+  name: W07
+  category: ingest
+  description: Write embeddings metadata (vector id + model id + pointers) @1k/s.
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 8
+  name: W08
+  category: ingest
+  description: Write policy decision audit records @200/s with strict transactions.
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 9
+  name: W09
+  category: ingest
+  description: Write config document updates with change-stream triggers @10/s.
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 10
+  name: W10
+  category: ingest
+  description: Rebuild search index from scratch over 50M docs; measure indexing throughput.
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 11
+  name: W11
+  category: query
+  description: 'Point lookup: fetch incident by incident_id.'
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 12
+  name: W12
+  category: query
+  description: 'Range filter: list incidents by tenant + time window + severity.'
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 13
+  name: W13
+  category: query
+  description: 'Full-text search: query incidents by service name + facets.'
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 14
+  name: W14
+  category: query
+  description: 'Similarity: kNN over embeddings top-20 with recall measurement.'
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 15
+  name: W15
+  category: query
+  description: 'Aggregate: incidents per service per hour (time buckets).'
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 16
+  name: W16
+  category: query
+  description: "Join: incident \u2194 asset \u2194 team mapping (relational joins)."
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 17
+  name: W17
+  category: query
+  description: 'Provenance traversal: derivation chain depth-3 (and depth-5 variant).'
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 18
+  name: W18
+  category: query
+  description: 'Nested predicate: filter enrichments by JSON path conditions.'
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 19
+  name: W19
+  category: query
+  description: 'Audit query: policy decisions for incident_id over time range.'
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 20
+  name: W20
+  category: query
+  description: 'Ad-hoc scan: Drill queries over Parquet partitions in object storage.'
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 21
+  name: W21
+  category: mixed
+  description: 'Create incident: incident row + audit row (single transaction).'
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 22
+  name: W22
+  category: mixed
+  description: Update incident status + append event log (transaction or saga).
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 23
+  name: W23
+  category: mixed
+  description: "Ingest anomaly score \u2192 update incident clustering mapping."
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 24
+  name: W24
+  category: mixed
+  description: "Chat query \u2192 retrieve incident + similar + write query log."
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 25
+  name: W25
+  category: mixed
+  description: 'Rollup job: hourly aggregates + store summary tables.'
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 26
+  name: W26
+  category: mixed
+  description: 'Model rollout: write registry entry + update serving pointers.'
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 27
+  name: W27
+  category: mixed
+  description: 'Backfill replay: reprocess 24h events into derived tables.'
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 28
+  name: W28
+  category: mixed
+  description: 'Multi-tenant contention: 50 tenants concurrent; enforce quotas.'
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 29
+  name: W29
+  category: mixed
+  description: 'Failure injection: node loss during writes; measure recovery and correctness.'
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''
+- id: 30
+  name: W30
+  category: mixed
+  description: 'Schema evolution: add field with default; validate compatibility;
+    deploy.'
+  metrics:
+  - throughput
+  - latency_p50
+  - latency_p95
+  - latency_p99
+  - error_rate
+  notes: ''

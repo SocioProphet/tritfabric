@@ -1,0 +1,13 @@
+task: cls
+entrypoint: torchvision.resnet18
+metric: val_acc
+mode: max
+peft:
+  kind: lora_conv_tail
+  r: 8
+  alpha: 16
+resources:
+  CPU: 2
+export:
+  onnx:
+    enabled: false

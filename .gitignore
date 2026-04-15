@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+
+# Node
+node_modules/
+
+# Go
+/bin/
+*.exe
+*.test
+*.out
+
+# Artifacts / runtime state
+artifacts/
+*.onnx
+*.pt
+*.pth
+*.ckpt
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store

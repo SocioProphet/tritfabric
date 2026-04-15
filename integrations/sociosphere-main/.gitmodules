@@ -1,0 +1,3 @@
+[submodule "third_party/tritrpc"]
+	path = third_party/tritrpc
+	url = ssh://git@ssh.github.com:443/SocioProphet/tritrpc.git

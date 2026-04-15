@@ -1,0 +1,22 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix atlas: <https://socioprophet.dev/ont/atlas#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+atlas:ModelShape
+    a sh:NodeShape ;
+    sh:targetClass atlas:Model ;
+    sh:property [
+        sh:path atlas:task ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path atlas:family ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path atlas:tenant ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+    ] .

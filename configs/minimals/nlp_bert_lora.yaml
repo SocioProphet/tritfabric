@@ -1,0 +1,11 @@
+task: nlp
+entrypoint: bert-base-uncased
+metric: f1
+mode: max
+peft:
+  kind: none
+resources:
+  CPU: 2
+export:
+  onnx:
+    enabled: false

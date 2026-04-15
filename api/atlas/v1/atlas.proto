@@ -1,0 +1,161 @@
+syntax = "proto3";
+
+package atlas.v1;
+
+option go_package = "atlas/v1;atlas";
+
+import "google/api/annotations.proto";
+
+message IRSpec { string yaml = 1; }         // full IR as YAML (opaque to the transport)
+message TuneGrid { string json = 1; }       // Tune param space (JSON)
+message DatasetSpec { string uri = 1; map<string,string> opts = 2; }
+
+message OnnxExportSpec {
+  bool enabled = 1;
+  string path = 2;
+  uint32 opset = 3;
+
+  message Axis { map<int32,string> dims = 1; }
+  map<string,Axis> dynamic_axes = 4;
+
+  bool simplify = 5;
+  bool runtime_check = 6;
+  repeated string providers = 7;
+  double cos_sim_threshold = 8;
+}
+
+message LedgerSpec {
+  string flops_backend = 1;   // fvcore|thop|none
+  bool log_activations = 2;
+}
+
+message PrecisionSpec { string weights = 1; string activations = 2; string norm = 3; }
+message QuantSpec { uint32 base_bits = 1; uint32 adapters_bits = 2; }
+
+message ResourceSpec {
+  double cpu = 1;
+  double gpu = 2;
+  double mem = 3;
+  map<string,double> node_resources = 4;  // custom Ray resources or node labels as resources
+}
+
+message SubmitTuneRequest {
+  // tenancy / identity
+  string tenant = 1;
+  string job_id = 2;
+
+  // model identity
+  string task = 3;
+  string entrypoint = 4;
+
+  // study specs
+  IRSpec ir = 10;
+  TuneGrid grid = 11;
+  DatasetSpec train = 12;
+  DatasetSpec val = 13;
+
+  // instrumentation / export
+  OnnxExportSpec onnx = 20;
+  LedgerSpec ledger = 21;
+  PrecisionSpec precision = 22;
+  QuantSpec quant = 23;
+
+  // scheduler knobs
+  uint32 num_samples = 30;
+  string metric = 31;
+  string mode = 32;  // "max" | "min"
+  ResourceSpec resources = 33;
+}
+
+message JobId { string id = 1; }
+
+message Status {
+  string state = 1;
+  map<string,string> info = 2;
+}
+
+message Artifact {
+  string id = 1;
+  string uri = 2;
+  string task = 3;
+  string family = 4;
+  string dataset = 5;
+  map<string,double> metrics = 6;
+  string onnx_uri = 7;
+  string ledger_uri = 8;
+}
+
+message ListArtifactsRequest { map<string,string> filters = 1; }
+message Ledger { string json = 1; } // math/dim ledger per run (JSON)
+
+service OrchestratorService {
+  rpc SubmitTuneStudy(SubmitTuneRequest) returns (JobId) {
+    option (google.api.http) = { post: "/v1/tune" body: "*" };
+  }
+  rpc SubmitTrainJob(SubmitTuneRequest) returns (JobId) {
+    option (google.api.http) = { post: "/v1/train" body: "*" };
+  }
+  rpc CancelJob(JobId) returns (Status) {
+    option (google.api.http) = { post: "/v1/jobs/{id}:cancel" body: "*" };
+  }
+  rpc GetJobStatus(JobId) returns (Status) {
+    option (google.api.http) = { get: "/v1/jobs/{id}/status" };
+  }
+}
+
+service RegistryService {
+  rpc ListArtifacts(ListArtifactsRequest) returns (stream Artifact) {
+    option (google.api.http) = { get: "/v1/artifacts" };
+  }
+  rpc GetLedger(JobId) returns (Ledger) {
+    option (google.api.http) = { get: "/v1/jobs/{id}/ledger" };
+  }
+  rpc PromoteArtifact(JobId) returns (Artifact) {
+    option (google.api.http) = { post: "/v1/jobs/{id}:promote" body: "*" };
+  }
+}
+
+// Serve plane (optional)
+message DeployRequest {
+  string name = 1;
+  string backend = 2;   // e.g., "onnx:<uri>" or "native:<py_entrypoint>"
+  uint32 replicas = 3;
+}
+message ScaleRequest {
+  string name = 1;
+  uint32 replicas = 2;
+}
+message ListDeploymentsRequest {}
+message ListDeploymentsResponse { repeated string names = 1; }
+
+message RouterConfig {
+  map<string,int32> weights = 1;
+  bool shadow = 2;
+  bool sticky = 3;
+}
+message RouterStatus {
+  map<string,int32> weights = 1;
+  bool shadow = 2;
+  bool sticky = 3;
+}
+message StickyConfig { bool sticky = 1; }
+
+message AutoScaleConfig {
+  string router = 1;
+  bool enable = 2;
+  double target_p95_ms = 3;
+  int32 min_weight = 4;
+  double period_s = 5;
+}
+
+service ServeService {
+  rpc Deploy(DeployRequest) returns (Status);
+  rpc Scale(ScaleRequest) returns (Status);
+  rpc ListDeployments(ListDeploymentsRequest) returns (ListDeploymentsResponse);
+
+  rpc ConfigureRouter(RouterConfig) returns (Status);
+  rpc GetRouter(StickyConfig) returns (RouterStatus);
+  rpc RouterSticky(StickyConfig) returns (Status);
+
+  rpc AutoScaleRouter(AutoScaleConfig) returns (Status);
+}

@@ -1,0 +1,19 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: tritfabric
+  namespace: argocd
+spec:
+  description: TritFabric / Atlas OS Service
+  sourceRepos:
+    - "*"
+  destinations:
+    - namespace: tritfabric-dev
+      server: https://kubernetes.default.svc
+    - namespace: tritfabric-stage
+      server: https://kubernetes.default.svc
+    - namespace: tritfabric-prod
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"

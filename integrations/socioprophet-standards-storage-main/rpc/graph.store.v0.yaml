@@ -1,0 +1,34 @@
+# triRPC contract (starter stub) — fill in full schema + codegen later
+service: graph.store.v0
+methods:
+  - name: Query
+    request: GraphQueryRequest
+    response: GraphQueryResponse
+  - name: Upsert
+    request: GraphUpsertRequest
+    response: GraphUpsertResponse
+  - name: Delete
+    request: GraphDeleteRequest
+    response: GraphDeleteResponse
+  - name: Explain
+    request: GraphExplainRequest
+    response: GraphExplainResponse
+
+types:
+  ConsistencyProfile:
+    enum: [STRONG_SINGLE_REGION, READ_YOUR_WRITES, EVENTUAL_MULTI_REGION, SNAPSHOT_ANALYTICS]
+
+  GraphQueryRequest:
+    fields:
+      tenant_id: string
+      dataset_id: string
+      query_language: string   # SPARQL/CYPHER/GREMLIN/ATOM_PATTERN/...
+      query_text: string
+      consistency_profile: ConsistencyProfile
+      deadline_ms: int64
+
+  GraphQueryResponse:
+    fields:
+      result_format: string    # ARROW_IPC_REF / NQUADS_REF / JSONLD_REF / PATHS_INLINE_SMALL
+      result_ref: string       # uri/hash pointer
+      result_provenance: map   # engine/version/index/timestamps/plan_hash

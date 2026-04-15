@@ -1,0 +1,9 @@
+pipeline:
+  ingest:
+    tika: true
+  ocr:
+    engines: ["tesseract", "easyocr"]
+  nlp:
+    spacy_model: "en_core_web_sm"
+    gliner_model: "urchade/gliner_small-v2.1"
+    rebel_model: "Babelscape/rebel-large"

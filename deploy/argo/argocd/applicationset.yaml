@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: tritfabric
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - env: dev
+            namespace: tritfabric-dev
+          - env: stage
+            namespace: tritfabric-stage
+          - env: prod
+            namespace: tritfabric-prod
+  template:
+    metadata:
+      name: "tritfabric-{{env}}"
+    spec:
+      project: tritfabric
+      source:
+        repoURL: "REPLACE_ME_REPO_URL"
+        targetRevision: main
+        path: deploy/argo/apps/tritfabric-services
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{namespace}}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

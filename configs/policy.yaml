@@ -1,0 +1,25 @@
+# Example Atlas/TritFabric policy (local dev)
+version: 0.1
+
+security:
+  opt_in_required: true
+  # sha256 hex of opt-in token; empty means "disabled unless opt_in_required=false"
+  opt_in_token_sha256: ""
+  # Default: local-only. Set to true to allow tcp listeners.
+  allow_tcp: false
+
+scheduler:
+  # Dominant Resource Fairness weights (higher = more share)
+  tenant_weights:
+    default: 1.0
+  auto_promotion:
+    metric_threshold: 0.80
+    metric_name: "val_score"
+
+promotion:
+  shacl_enforce: true
+  onnx_cosine_threshold: 0.995
+  eval_delta_threshold: 0.01   # max allowed regression
+
+artifacts:
+  root: "artifacts"

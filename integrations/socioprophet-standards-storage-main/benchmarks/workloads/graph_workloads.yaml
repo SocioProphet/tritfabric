@@ -1,0 +1,82 @@
+# Graph Workloads Suite (Benchmark Definitions)
+# This suite complements the 30 storage workloads in benchmarks/workloads/workloads.yaml.
+# Each workload definition should be implemented in the benchmark harness with consistent data generation.
+
+workloads:
+  - id: G01
+    name: RDF SPARQL star query (entity attributes)
+    paradigm: RDF
+    language: SPARQL
+    shape: star
+    scale: [1e5, 1e6, 1e7]
+    metrics: [p50_ms, p95_ms, p99_ms, qps]
+
+  - id: G02
+    name: RDF provenance chain traversal (prov:wasDerivedFrom depth N)
+    paradigm: RDF
+    language: SPARQL
+    shape: chain
+    parameters:
+      depth: [3, 10, 50, 200]
+    metrics: [p50_ms, p95_ms, p99_ms, qps]
+
+  - id: G03
+    name: RDF CONSTRUCT subgraph extraction
+    paradigm: RDF
+    language: SPARQL
+    shape: subgraph
+    metrics: [p95_ms, result_bytes]
+
+  - id: G04
+    name: RDF bulk load (N-Quads) + index build time
+    paradigm: RDF
+    language: SPARQL_UPDATE
+    shape: bulk
+    metrics: [load_s, index_s, disk_gb]
+
+  - id: G05
+    name: Property graph k-hop neighborhood (k=1..4)
+    paradigm: PROPERTY_GRAPH
+    language: CYPHER
+    shape: neighborhood
+    parameters:
+      k: [1,2,3,4]
+    metrics: [p95_ms, qps]
+
+  - id: G06
+    name: Property graph constrained path query (service dependency)
+    paradigm: PROPERTY_GRAPH
+    language: CYPHER
+    shape: path
+    metrics: [p95_ms, qps]
+
+  - id: G07
+    name: Hypergraph pattern match (AtomSpace-style)
+    paradigm: HYPERGRAPH
+    language: ATOM_PATTERN
+    shape: n_ary
+    metrics: [p95_ms, qps]
+
+  - id: G08
+    name: Multi-tenant isolation query (tenant-scoped named graphs / labels)
+    paradigm: MIXED
+    language: MIXED
+    shape: isolation
+    parameters:
+      tenants: [10, 100, 1000]
+    metrics: [p95_ms, leakage_checks_passed]
+
+  - id: G09
+    name: Hybrid search join (graph -> text index pointers)
+    paradigm: MIXED
+    language: MIXED
+    shape: hybrid
+    metrics: [p95_ms, qps]
+
+  - id: G10
+    name: Replication lag under update load (eventual profile)
+    paradigm: MIXED
+    language: MIXED
+    shape: replication
+    metrics: [lag_ms, recovery_s, divergence_events]
+

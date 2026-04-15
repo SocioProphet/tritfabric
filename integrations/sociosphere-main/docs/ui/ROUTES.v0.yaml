@@ -1,0 +1,37 @@
+# routes seed derived from docs/ui/INVENTORY.auto.md
+routes:
+  - id: ui-inventory-auto-generated
+    title: UI Inventory (auto-generated)
+    path: /ui-inventory-auto-generated
+    page: pages/ui-inventory-auto-generated/Index.vue
+    actions: []
+    components: []
+    notes: ''
+  - id: apps
+    title: Apps
+    path: /apps
+    page: pages/apps/Index.vue
+    actions: []
+    components: []
+    notes: ''
+  - id: apps-ui-workbench
+    title: apps/ui-workbench
+    path: /apps-ui-workbench
+    page: pages/apps-ui-workbench/Index.vue
+    actions: []
+    components: []
+    notes: ''
+  - id: packages
+    title: Packages
+    path: /packages
+    page: pages/packages/Index.vue
+    actions: []
+    components: []
+    notes: ''
+  - id: packages-ui-kit
+    title: packages/ui-kit
+    path: /packages-ui-kit
+    page: pages/packages-ui-kit/Index.vue
+    actions: []
+    components: []
+    notes: ''

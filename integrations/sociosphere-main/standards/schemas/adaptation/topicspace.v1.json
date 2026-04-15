@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socios.dev/schemas/adaptation/topicspace.v1.json",
+  "title": "TopicSpace (v1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "project_id",
+    "method",
+    "topic_id",
+    "signature",
+    "membership"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^space:topic:(lda|lsi|lsa):[a-z0-9._:-]+:[0-9]+$"
+    },
+    "project_id": {
+      "type": "string",
+      "pattern": "^proj:[a-z0-9._:-]+$"
+    },
+    "method": {
+      "type": "string",
+      "enum": [
+        "lda",
+        "lsi",
+        "lsa"
+      ]
+    },
+    "topic_id": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "top_terms"
+      ],
+      "properties": {
+        "top_terms": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "term",
+              "weight"
+            ],
+            "properties": {
+              "term": {
+                "type": "string"
+              },
+              "weight": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "top_phrases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "centroid_embedding_ref": {
+          "type": "string"
+        }
+      }
+    },
+    "membership": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "function",
+        "params"
+      ],
+      "properties": {
+        "function": {
+          "type": "string",
+          "enum": [
+            "lda_theta",
+            "lsi_cosine",
+            "lsa_cosine"
+          ]
+        },
+        "params": {
+          "type": "object"
+        }
+      }
+    },
+    "drift": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "window": {
+          "type": "string"
+        },
+        "kl_divergence": {
+          "type": "number"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

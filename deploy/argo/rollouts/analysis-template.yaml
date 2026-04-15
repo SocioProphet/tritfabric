@@ -1,0 +1,16 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: tritfabric-slo
+spec:
+  metrics:
+    - name: error-rate
+      interval: 30s
+      successCondition: result[0] < 0.01
+      provider:
+        prometheus:
+          address: http://prometheus-operated.monitoring.svc:9090
+          query: |
+            sum(rate(http_requests_total{job="tritfabric-server",status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{job="tritfabric-server"}[5m]))

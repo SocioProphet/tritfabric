@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tritfabric-atlas"
+version = "0.1.0"
+description = "TritFabric (Atlas OS Service): TritRPC-aligned orchestration, registry, promotion gates, and serve router."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name="Socios"}]
+
+dependencies = [
+  "pyyaml>=6.0",
+  "prometheus_client>=0.20.0",
+  "fastapi>=0.110.0",
+  "uvicorn>=0.29.0",
+  "requests>=2.31.0",
+  "numpy>=1.24.0",
+  "rdflib>=7.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0"]
+grpc = ["grpcio>=1.64.0", "grpcio-tools>=1.64.0", "protobuf>=5.0.0"]
+onnx = ["onnxruntime>=1.18.0", "onnx>=1.16.0"]
+ray = ["ray[serve,tune]>=2.10.0"]
+shacl = ["pyshacl>=0.26.0"]
+torch = ["torch>=2.0.0"]
+
+
+[project.scripts]
+atlasd = "cmd.atlasd.main:main"

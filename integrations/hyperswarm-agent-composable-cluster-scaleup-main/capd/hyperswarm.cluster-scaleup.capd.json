@@ -1,0 +1,18 @@
+{
+  "artifacts": {
+    "fetch_script": "tools/fetch_upstreams.sh",
+    "upstreams_env": "tools/upstreams.env"
+  },
+  "capability_id": "caps.infra.cluster-scaleup.hyperswarm@0.1.0",
+  "description": "Reproducible wrapper that pins and fetches upstream cluster scale-up toolchains into third_party/ without vendoring.",
+  "kind": "infra.wrapper",
+  "links": {
+    "integration_target": "https://github.com/SocioProphet/prophet-platform",
+    "ontology_canonical": "https://github.com/SocioProphet/ontogenesis",
+    "protocol_canonical": "https://github.com/SocioProphet/tritrpc",
+    "storage_standards": "https://github.com/SocioProphet/socioprophet-standards-storage",
+    "workspace_governance": "https://github.com/SocioProphet/sociosphere"
+  },
+  "name": "HyperSwarm Agent Composable Cluster Scale-Up",
+  "status": "experimental"
+}

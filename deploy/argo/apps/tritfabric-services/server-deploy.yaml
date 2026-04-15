@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tritfabric-server
+  labels:
+    app.kubernetes.io/name: tritfabric-server
+    app.kubernetes.io/part-of: tritfabric
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: tritfabric-server
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: tritfabric-server
+        app.kubernetes.io/part-of: tritfabric
+        plane: ai
+    spec:
+      containers:
+        - name: server
+          image: ghcr.io/REPLACE_ME/tritfabric-server:latest
+          ports:
+            - containerPort: 8000
+            - containerPort: 9108
+          env:
+            - name: ATLAS_POLICY
+              value: /etc/atlas/policy.yaml
+          volumeMounts:
+            - name: cfg
+              mountPath: /etc/atlas
+      volumes:
+        - name: cfg
+          configMap:
+            name: tritfabric-policy
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tritfabric-policy
+data:
+  policy.yaml: |
+    version: 0.1
+    security:
+      opt_in_required: true
+      opt_in_token_sha256: ""
+      allow_tcp: true
+    scheduler:
+      tenant_weights: {default: 1.0}
+      auto_promotion: {metric_threshold: 0.80, metric_name: "val_score"}
+    promotion:
+      shacl_enforce: true
+      onnx_cosine_threshold: 0.995
+      eval_delta_threshold: 0.01
+    artifacts:
+      root: "artifacts"

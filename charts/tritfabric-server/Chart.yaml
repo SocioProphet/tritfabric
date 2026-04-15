@@ -1,0 +1,6 @@
+apiVersion: v2
+name: tritfabric-server
+description: TritFabric Atlas server (atlasd)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

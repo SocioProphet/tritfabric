@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socios.dev/schemas/adaptation/artifact.v1.json",
+  "title": "Adaptation Artifact (v1)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "space_id",
+    "type",
+    "status",
+    "payload",
+    "provenance",
+    "version",
+    "digest"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^art:[a-z0-9._:-]+$"
+    },
+    "space_id": {
+      "type": "string",
+      "pattern": "^space:[a-z0-9._:-]+$"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "dictionary",
+        "glossary_term",
+        "regex_rule",
+        "pattern_template",
+        "ngram_rankings",
+        "topic_signature",
+        "entity_type_def",
+        "relation_type_def",
+        "target_taxonomy_patch"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "candidate",
+        "approved",
+        "deprecated",
+        "banned"
+      ]
+    },
+    "payload": {
+      "type": "object"
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "created_at"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": [
+            "manual",
+            "import",
+            "mined",
+            "weak_supervision",
+            "program_promoted"
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "created_by": {
+          "type": "string"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "supporting_runs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^run:[a-z0-9._:-]+$"
+          }
+        },
+        "metrics": {
+          "type": "object"
+        }
+      }
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    }
+  }
+}

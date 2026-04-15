@@ -1,0 +1,12 @@
+workspace_version: 1
+repo: socioprophet/sourceos-a2a-mcp-bootstrap
+kind: bootstrap
+summary: "Bootstrap scripts for SourceOS A2A MCP carrier verification and minimal plumbing."
+primary_language: "python+make"
+build:
+  - "make verify"
+integrations:
+  mcp: []
+related_repos:
+  - "socioprophet/prophet-cli"
+  - "socioprophet/socioprophet"
