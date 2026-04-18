@@ -1,0 +1,26 @@
+event_id: evt-fabric-0001
+workspace_id: ws-trading-alpha
+branch_id: br-market-open
+modality: order_intent
+authority_context:
+  principal: agent
+  delegation_chain:
+    - desk:equities-us
+    - runtime:planner
+  approval_state: approved
+requested_effects:
+  - ref: fx_req_0001
+approved_effects:
+  - ref: fx_req_0001.approved
+provenance_links:
+  - ref: profit-mpcc:evt_order_intent_0001
+  - ref: profit-mpcc:approval_evt_0001
+routing_handoff:
+  ingress: tritfabric/bridge/runtime-gateway
+  egress: agentplane/execution-intake
+  policy_labels:
+    - requires_pretrade_check
+    - provenance_required
+  note: >-
+    Example fabric/runtime handoff preserving authority context, effect separation,
+    and upstream provenance links from Profit MPCC.
