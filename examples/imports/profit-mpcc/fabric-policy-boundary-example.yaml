@@ -1,0 +1,22 @@
+event_ref: profit-mpcc:fx_req_0001
+authority_context:
+  principal: agent
+  delegation_chain:
+    - desk:equities-us
+    - runtime:planner
+  approval_state: approved
+policy_boundary:
+  ingress_labels:
+    - requires_pretrade_check
+    - provenance_required
+  bridge_rule: deny-by-default-unless-authorized
+  egress_labels:
+    - execution_allowed
+    - replay_guard_required
+provenance_requirements:
+  preserve_links:
+    - evt_order_intent_0001
+    - approval_evt_0001
+  handoff_note: >-
+    Example showing that a routed fabric handoff keeps effect separation and
+    provenance references intact across the bridge boundary.
