@@ -4,7 +4,7 @@ import json
 import logging
 import os
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from atlas.semantics.emit_jsonld import model_card_to_jsonld
 from atlas.semantics.emit_rdf import model_card_to_turtle
@@ -53,6 +53,24 @@ class Registry:
         with open(p, "r", encoding="utf-8") as f:
             return json.load(f)
 
+    @staticmethod
+    def _string_list(value: Any) -> List[str]:
+        if value is None:
+            return []
+        if isinstance(value, str):
+            return [value] if value else []
+        if isinstance(value, (list, tuple, set)):
+            return [str(v) for v in value if str(v)]
+        return [str(value)] if str(value) else []
+
+    def _math_type(self, req: Dict[str, Any]) -> List[str]:
+        math = req.get("math") or {}
+        return self._string_list(req.get("mathType") or req.get("math_type") or math.get("mathType") or math.get("math_type"))
+
+    def _calc_ops(self, req: Dict[str, Any]) -> List[str]:
+        math = req.get("math") or {}
+        return self._string_list(req.get("calcOps") or req.get("calc_ops") or math.get("calcOps") or math.get("calc_ops"))
+
     def promote(self, job_id: str, req: Dict[str, Any], best: Dict[str, Any]) -> Dict[str, Any]:
         """Promote a finished job into a registry artifact.
 
@@ -63,6 +81,9 @@ class Registry:
 
         onnx_cfg = (req.get("export", {}) or {}).get("onnx", {}) or {}
         onnx_check = self._read_onnx_check(job_id) or {}
+        ledger = self.read_ledger(job_id)
+        ledger_path = os.path.join(outdir, "ledger.json") if ledger is not None else ""
+        artifact_ref = req.get("artifactRef") or req.get("artifact_ref") or onnx_cfg.get("path") or ""
 
         card: Dict[str, Any] = {
             "model": {
@@ -78,6 +99,11 @@ class Registry:
                 "dataset_hash": req.get("dataset_hash", "unknown"),
             },
             "metrics": (best.get("metrics") or {}),
+            "mathType": self._math_type(req),
+            "calcOps": self._calc_ops(req),
+            "ledgerRef": ledger_path,
+            "artifactRef": artifact_ref,
+            "ledger": ledger or {},
             "onnx": {
                 "path": onnx_cfg.get("path", ""),
                 "opset": onnx_cfg.get("opset"),
