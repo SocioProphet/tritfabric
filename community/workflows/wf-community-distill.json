@@ -1,0 +1,37 @@
+{
+  "id": "wf-community-distill",
+  "version": "v0.1",
+  "purpose": "Transform consented human feedback and curated exemplars into reviewable distillation candidates without granting automatic promotion authority.",
+  "inputs": ["HFEvent", "CurationRecord", "policy_context", "eval_rubric"],
+  "gates": ["consent=true", "license-present", "lineage-present", "rubric-present", "manual-review-before-promotion"],
+  "steps": [
+    {
+      "id": "ingest-feedback",
+      "kind": "ingest",
+      "description": "Read HFEvent and CurationRecord inputs from the governed community stream."
+    },
+    {
+      "id": "policy-check",
+      "kind": "policy_check",
+      "description": "Reject inputs that lack consent, license, lineage, or rubric evidence."
+    },
+    {
+      "id": "curate-candidates",
+      "kind": "curate",
+      "description": "Group accepted examples into candidate training or evaluation slices with provenance preserved."
+    },
+    {
+      "id": "distill-candidate",
+      "kind": "distill",
+      "description": "Produce a distillation candidate record for downstream evaluation; do not promote automatically."
+    },
+    {
+      "id": "emit-records",
+      "kind": "emit",
+      "description": "Emit candidate artifacts, provenance references, and gate status for review."
+    }
+  ],
+  "outputs": ["distillation_candidate", "gate_report", "provenance_manifest"],
+  "claim_boundary": "This workflow is a contract stub only. It does not execute training, modify models, or promote artifacts.",
+  "notes": "Runtime implementation should bind to the community schemas and SHACL gates before any distillation execution."
+}
