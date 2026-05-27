@@ -1,0 +1,37 @@
+{
+  "id": "wf-curriculum-abtest",
+  "version": "v0.1",
+  "purpose": "Evaluate community-curated curricula against a baseline before any learning object or training slice is promoted.",
+  "inputs": ["Curriculum", "baseline_curriculum", "eval_rubric", "policy_context"],
+  "gates": ["license-present", "lineage-present", "rubric-present", "eval-delta-required", "manual-review-before-promotion"],
+  "steps": [
+    {
+      "id": "ingest-curriculum",
+      "kind": "ingest",
+      "description": "Read proposed Curriculum records with prerequisite, exemplar, rubric, license, and lineage fields."
+    },
+    {
+      "id": "policy-check",
+      "kind": "policy_check",
+      "description": "Reject curricula that lack license, lineage, or rubric evidence."
+    },
+    {
+      "id": "run-ab-evaluation",
+      "kind": "ab_test",
+      "description": "Compare candidate curriculum against baseline using declared rubric and eval metrics."
+    },
+    {
+      "id": "assign-credit",
+      "kind": "credit",
+      "description": "Emit non-transferable contribution-credit records only for accepted review outcomes."
+    },
+    {
+      "id": "emit-report",
+      "kind": "emit",
+      "description": "Emit evaluation report, gate status, and provenance references."
+    }
+  ],
+  "outputs": ["curriculum_eval_report", "credit_record_candidate", "provenance_manifest"],
+  "claim_boundary": "This workflow is a contract stub only. It does not promote curricula, train models, or create economic/token obligations.",
+  "notes": "Credit is an audit signal, not a payout or token commitment."
+}
