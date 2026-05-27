@@ -1,6 +1,6 @@
 {
   "@context": {
-    "atlas": "https://socioprophet.org/atlas#",
+    "atlas": "https://socioprophet.dev/ont/atlas#",
     "schema": "https://schema.org/",
     "xsd": "http://www.w3.org/2001/XMLSchema#",
     "CommunityEvent": "atlas:CommunityEvent",
