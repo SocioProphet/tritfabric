@@ -13,6 +13,7 @@ from typing import Any, Dict, Iterable
 ROOT = Path(__file__).resolve().parents[1]
 CATALOG = ROOT / "catalog/frameworks/index.jsonl"
 SCORECARDS = ROOT / "catalog/frameworks/scorecards"
+CAPABILITIES = ROOT / "catalog/frameworks/capabilities"
 
 CATALOG_REQUIRED = {
     "id",
@@ -40,11 +41,14 @@ SCORECARD_REQUIRED = {"framework_id", "scorecard_version", "authority", "adapter
 AUTHORITY = {"catalog", "adapter", "runtime", "promotion", "deprecated"}
 READINESS = {"not_started", "design_only", "stub", "smoke_tested", "validated", "blocked", "rejected"}
 
+CAPABILITY_REQUIRED = {"framework_id", "capability_id", "capability_type", "inputs", "outputs", "required_gates", "claim_boundary"}
+CAPABILITY_TYPES = {"training", "serving", "evaluation", "dataset", "conversion", "observability"}
+
 
 def _require_nonempty_list(entry: Dict[str, Any], key: str) -> None:
     value = entry.get(key)
     if not isinstance(value, list) or not value or not all(isinstance(v, str) and v for v in value):
-        raise AssertionError(f"{entry.get('id', '<unknown>')} field {key!r} must be a non-empty list of strings")
+        raise AssertionError(f"{entry.get('id', entry.get('framework_id', '<unknown>'))} field {key!r} must be a non-empty list of strings")
 
 
 def _load_jsonl(path: Path) -> Iterable[Dict[str, Any]]:
@@ -109,9 +113,35 @@ def validate_scorecards(catalog_ids: set[str]) -> None:
                 raise AssertionError(f"{path} gates missing {gate}")
 
 
+def validate_capabilities(catalog_ids: set[str]) -> None:
+    if not CAPABILITIES.exists():
+        return
+    seen: set[str] = set()
+    for path in sorted(CAPABILITIES.glob("*.json")):
+        with path.open("r", encoding="utf-8") as fh:
+            cap = json.load(fh)
+        missing = CAPABILITY_REQUIRED - set(cap)
+        if missing:
+            raise AssertionError(f"{path} missing fields: {sorted(missing)}")
+        fid = cap["framework_id"]
+        if fid not in catalog_ids:
+            raise AssertionError(f"{path} references unknown framework_id: {fid}")
+        cap_id = cap["capability_id"]
+        if cap_id in seen:
+            raise AssertionError(f"duplicate capability_id: {cap_id}")
+        seen.add(cap_id)
+        if cap["capability_type"] not in CAPABILITY_TYPES:
+            raise AssertionError(f"{path} invalid capability_type: {cap['capability_type']}")
+        for key in ("inputs", "outputs", "required_gates"):
+            _require_nonempty_list(cap, key)
+        if not isinstance(cap["claim_boundary"], str) or not cap["claim_boundary"]:
+            raise AssertionError(f"{path} claim_boundary must be a non-empty string")
+
+
 def main() -> int:
     ids = validate_catalog()
     validate_scorecards(ids)
+    validate_capabilities(ids)
     print("framework catalog: ok")
     return 0
 
