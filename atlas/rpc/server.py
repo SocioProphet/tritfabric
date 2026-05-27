@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 from concurrent import futures
 from typing import Any, Dict, Iterable, Optional, Tuple
@@ -80,6 +81,14 @@ def serve_grpc(daemon: Any, host: str = "127.0.0.1", port: int = 50051) -> None:
         opt_in_required=bool(daemon.policy.get("security", "opt_in_required", default=True)),
         opt_in_token_sha256=str(daemon.policy.get("security", "opt_in_token_sha256", default="") or ""),
     )
+
+    def _status_reply(code: str, reason: str, state: str, info: Dict[str, Any], payload: Dict[str, Any] | None = None):
+        info_s = {k: str(v) for k, v in (info or {}).items()}
+        return atlas_pb2.StatusReply(
+            trit=atlas_pb2.TritStatus(code=code, reason=reason, info=info_s),
+            status=atlas_pb2.Status(state=state, info=info_s),
+            payload_json=json.dumps(payload or {}, sort_keys=True),
+        )
 
     class OrchestratorServicer(atlas_pb2_grpc.OrchestratorServiceServicer):  # type: ignore
         def SubmitTuneStudy(self, req, ctx):
@@ -191,6 +200,40 @@ def serve_grpc(daemon: Any, host: str = "127.0.0.1", port: int = 50051) -> None:
             except Exception as e:
                 record_request(endpoint, tenant, "FALSE")
                 ctx.abort(grpc.StatusCode.INTERNAL, str(e))
+
+        def Promote(self, req, ctx):
+            endpoint = "RegistryService/Promote"
+            tenant = "default"
+            try:
+                guard.check(ctx.invocation_metadata())
+                out = daemon.promote(req.id)
+                record_request(endpoint, tenant, "TRUE")
+                return _status_reply(
+                    code="TRUE",
+                    reason="PROMOTED",
+                    state="SUCCEEDED",
+                    info={"job_id": req.id, "tenant": tenant},
+                    payload=out,
+                )
+            except ValueError as e:
+                record_request(endpoint, tenant, "FALSE")
+                return _status_reply(
+                    code="FALSE",
+                    reason="PROMOTION_GATE_FAILED",
+                    state="FAILED",
+                    info={"job_id": req.id, "tenant": tenant, "error": str(e)},
+                )
+            except AuthError as e:
+                record_request(endpoint, tenant, "FALSE")
+                ctx.abort(grpc.StatusCode.PERMISSION_DENIED, str(e))
+            except Exception as e:
+                record_request(endpoint, tenant, "FALSE")
+                return _status_reply(
+                    code="FALSE",
+                    reason="PROMOTION_ERROR",
+                    state="FAILED",
+                    info={"job_id": req.id, "tenant": tenant, "error": str(e)},
+                )
 
     # ServeService is optional; implemented only if ray serve is installed.
     class ServeServicer(atlas_pb2_grpc.ServeServiceServicer):  # type: ignore
