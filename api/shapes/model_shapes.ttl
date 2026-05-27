@@ -19,4 +19,42 @@ atlas:ModelShape
         sh:path atlas:tenant ;
         sh:datatype xsd:string ;
         sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path atlas:mathType ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:message "Model cards must declare at least one mathType such as algebraic, geometric, probabilistic, or optimization." ;
+    ] ;
+    sh:property [
+        sh:path atlas:calcOps ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:message "Model cards must declare calculus operations used by the model or adapter." ;
+    ] ;
+    sh:property [
+        sh:path atlas:ledgerRef ;
+        sh:minCount 1 ;
+        sh:message "Promotion candidates must include a ledger reference." ;
+    ] ;
+    sh:property [
+        sh:path atlas:artifactRef ;
+        sh:minCount 1 ;
+        sh:message "Promotion candidates must include an artifact reference." ;
+    ] .
+
+atlas:ModelCardShape
+    a sh:NodeShape ;
+    sh:targetClass atlas:ModelCard ;
+    sh:property [
+        sh:path atlas:model ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path atlas:metrics ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path atlas:ledger ;
+        sh:minCount 1 ;
     ] .
