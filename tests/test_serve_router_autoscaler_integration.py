@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import collections
 
 from atlas.serve.autoscaler import RouterAutoscalerCore
@@ -57,10 +58,10 @@ def test_router_update_removes_retired_backend_windows_and_inflight():
     assert router.status()["weights"] == {"blue": 20}
 
 
-def test_routercore_route_populates_status_without_ray(event_loop):
+def test_routercore_route_populates_status_without_ray():
     router = RouterCore(weights={"blue": 1}, window_size=10)
 
-    result = event_loop.run_until_complete(router.route({"x": 1}))
+    result = asyncio.run(router.route({"x": 1}))
     status = router.status()
 
     assert result["backend"] == "blue"
