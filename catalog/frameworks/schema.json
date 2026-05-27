@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.dev/schemas/tritfabric/framework-catalog-entry.schema.json",
+  "title": "Network Atlas Framework Catalog Entry",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "domain",
+    "architecture_family",
+    "adapter_status",
+    "adapter_type",
+    "license_status",
+    "maintenance_status",
+    "promotion_gates",
+    "metrics",
+    "math_type",
+    "calc_ops",
+    "source_docs",
+    "claim_boundary"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+    "name": {"type": "string", "minLength": 1},
+    "domain": {"type": "string", "minLength": 1},
+    "architecture_family": {"type": "string", "minLength": 1},
+    "adapter_status": {
+      "type": "string",
+      "enum": ["raw_source", "candidate", "planned", "stubbed", "validated", "rejected", "superseded"]
+    },
+    "adapter_type": {
+      "type": "string",
+      "enum": ["none", "native", "wrapper", "converter", "dataset", "evaluation", "serve", "training", "catalog_only"]
+    },
+    "license_status": {
+      "type": "string",
+      "enum": ["unknown", "compatible", "review_required", "restricted", "incompatible"]
+    },
+    "maintenance_status": {
+      "type": "string",
+      "enum": ["unknown", "active", "stale", "archived", "internal", "n/a"]
+    },
+    "promotion_gates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "math_type": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "calc_ops": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "source_docs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "claim_boundary": {"type": "string", "minLength": 1},
+    "notes": {"type": "string"}
+  }
+}
