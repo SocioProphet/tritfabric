@@ -1,0 +1,16 @@
+{
+  "framework_id": "ray",
+  "scorecard_version": "v0.1",
+  "authority": "adapter",
+  "adapter_scope": ["training", "serving", "observability"],
+  "readiness": "stub",
+  "gates": {
+    "license": "pass",
+    "provenance": "pass",
+    "tests": "smoke",
+    "model_card": "partial",
+    "runtime_safety": "review_required"
+  },
+  "claim_boundary": "Ray is recognized as the current Atlas execution substrate where TritFabric code already references it. This scorecard does not claim full Ray feature coverage.",
+  "notes": "Follow-on work should bind concrete runner, Tune, and Serve capabilities to conformance tests."
+}
