@@ -1,0 +1,12 @@
+{
+  "type": "HFEvent",
+  "event_id": "hf_evt_invalid_0001",
+  "agentId": "agent-mentor-001",
+  "userId": "curator-001",
+  "rubric": {"provenance": 1.0},
+  "score": 0.95,
+  "consent": false,
+  "license": "CC-BY-4.0",
+  "lineage": ["recovered-doc7-community-learning-plane"],
+  "timestamp": "2026-05-27T00:00:00Z"
+}
