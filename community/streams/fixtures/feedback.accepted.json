@@ -1,0 +1,19 @@
+{
+  "topic": "atlas.community.feedback.accepted",
+  "record": {
+    "event_id": "hf-stream-0001",
+    "agent_id": "agent-mentor-001",
+    "user_id": "curator-001",
+    "prompt": "Explain why provenance is required.",
+    "response": "Provenance is required so promoted evidence remains auditable.",
+    "rubric": {"provenance": 1.0, "safety": 1.0},
+    "score": 0.95,
+    "tags": {"plane": "community-learning"},
+    "consent": true,
+    "license": "CC-BY-4.0",
+    "lineage": ["recovered-doc7-community-learning-plane"],
+    "ts": 1780000000
+  },
+  "side_effects": ["none"],
+  "claim_boundary": "Fixture represents an append-only accepted event only; it does not train, distill, or promote."
+}
