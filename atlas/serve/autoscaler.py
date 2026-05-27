@@ -4,6 +4,8 @@ import time
 from dataclasses import dataclass
 from typing import Any, Dict, Mapping, Optional
 
+from atlas.observability.metrics import record_autoscale_decision
+
 try:
     import ray  # type: ignore
     from ray import serve  # type: ignore
@@ -20,6 +22,7 @@ class AutoscaleDecision:
     pressure: Dict[str, float]
     changed: bool
     reason: str
+    adjusted_backend: Optional[str] = None
 
 
 class RouterAutoscalerCore:
@@ -138,16 +141,30 @@ class RouterAutoscalerCore:
         new_weights = dict(weights)
         new_weights[hottest] -= delta
         new_weights[coolest] += delta
-        return AutoscaleDecision(weights=new_weights, pressure=pressure, changed=new_weights != weights, reason="shift-hot-to-cool")
+        return AutoscaleDecision(
+            weights=new_weights,
+            pressure=pressure,
+            changed=new_weights != weights,
+            reason="shift-hot-to-cool",
+            adjusted_backend=hottest,
+        )
 
-    def step_from_status(self, st: Dict[str, Any]) -> Dict[str, Any]:
+    def step_from_status(self, st: Dict[str, Any], record_metrics: bool = True) -> Dict[str, Any]:
         decision = self.decide(st)
+        if record_metrics:
+            record_autoscale_decision(
+                reason=decision.reason,
+                changed=decision.changed,
+                pressure=decision.pressure,
+                adjusted_backend=decision.adjusted_backend,
+            )
         return {
             "ok": True,
             "weights": decision.weights,
             "pressure": decision.pressure,
             "changed": decision.changed,
             "reason": decision.reason,
+            "adjusted_backend": decision.adjusted_backend,
             "shadow": bool(st.get("shadow", False)),
         }
 
