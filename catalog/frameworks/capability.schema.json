@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.dev/schemas/tritfabric/framework-capability.schema.json",
+  "title": "Network Atlas Framework Capability Descriptor",
+  "type": "object",
+  "required": [
+    "framework_id",
+    "capability_id",
+    "capability_type",
+    "inputs",
+    "outputs",
+    "required_gates",
+    "claim_boundary"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "framework_id": {"type": "string", "minLength": 1},
+    "capability_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+    "capability_type": {
+      "type": "string",
+      "enum": ["training", "serving", "evaluation", "dataset", "conversion", "observability"]
+    },
+    "inputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "outputs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "required_gates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "claim_boundary": {"type": "string", "minLength": 1},
+    "notes": {"type": "string"}
+  }
+}
