@@ -1,0 +1,38 @@
+{
+  "version": "v0.1",
+  "claim_boundary": "Topic contracts define append-only community event surfaces only. They do not create broker infrastructure, persistence, training, distillation, or promotion behavior.",
+  "topics": [
+    {
+      "name": "atlas.community.feedback.accepted",
+      "record_type": "HFEvent",
+      "schema": "community/schemas/HFEvent.avsc",
+      "required_gates": ["consent=true", "license-present", "lineage-present", "rubric-present"],
+      "retention": "policy-defined",
+      "side_effects": ["none"]
+    },
+    {
+      "name": "atlas.community.curation.accepted",
+      "record_type": "CurationRecord",
+      "schema": "community/schemas/CurationRecord.avsc",
+      "required_gates": ["consent=true", "license-present", "lineage-present", "checksum-present"],
+      "retention": "policy-defined",
+      "side_effects": ["none"]
+    },
+    {
+      "name": "atlas.community.curriculum.evaluated",
+      "record_type": "Curriculum",
+      "schema": "community/schemas/Curriculum.avsc",
+      "required_gates": ["license-present", "lineage-present", "rubric-present", "manual-review-before-promotion"],
+      "retention": "policy-defined",
+      "side_effects": ["none"]
+    },
+    {
+      "name": "atlas.community.credit.recorded",
+      "record_type": "CreditRecord",
+      "schema": "community/schemas/CreditRecord.avsc",
+      "required_gates": ["accepted-source-event", "non-transferable", "non-economic"],
+      "retention": "policy-defined",
+      "side_effects": ["none"]
+    }
+  ]
+}

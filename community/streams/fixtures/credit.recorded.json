@@ -1,0 +1,16 @@
+{
+  "topic": "atlas.community.credit.recorded",
+  "record": {
+    "credit_id": "credit-0001",
+    "contributor_id": "curator-001",
+    "source_event_id": "hf-stream-0001",
+    "credit": 1.0,
+    "credit_basis": "accepted-feedback-provenance-rubric",
+    "accepted": true,
+    "ts": 1780000010
+  },
+  "side_effects": ["none"],
+  "non_transferable": true,
+  "economic_obligation": false,
+  "claim_boundary": "Fixture represents audit credit only; it does not create token, payout, or economic obligation."
+}
