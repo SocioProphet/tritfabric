@@ -47,6 +47,12 @@ def test_registry_promote_writes_calculus_model_card(tmp_path, monkeypatch):
     assert os.path.exists(tmp_path / "job-valid" / "model_card.jsonld")
     assert os.path.exists(tmp_path / "job-valid" / "model_card.ttl")
 
+    ttl = (tmp_path / "job-valid" / "model_card.ttl").read_text(encoding="utf-8")
+    assert "mathType" in ttl
+    assert "calcOps" in ttl
+    assert "ledgerRef" in ttl
+    assert "artifactRef" in ttl
+
 
 def test_registry_promote_blocks_when_shacl_enforced(tmp_path, monkeypatch):
     monkeypatch.setattr(registry_mod, "validate_trial_graph_turtle", lambda **kwargs: (False, "missing mathType"))
