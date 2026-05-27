@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "CreditRecord",
+  "namespace": "atlas.community",
+  "doc": "Contribution-credit record for accepted feedback, curation, or evaluation events. Credit is an audit score, not a token or payout commitment.",
+  "fields": [
+    {"name": "credit_id", "type": "string"},
+    {"name": "contributor_id", "type": "string"},
+    {"name": "source_event_id", "type": "string"},
+    {"name": "credit", "type": "double"},
+    {"name": "credit_basis", "type": "string"},
+    {"name": "accepted", "type": "boolean"},
+    {"name": "ts", "type": "long"}
+  ]
+}
