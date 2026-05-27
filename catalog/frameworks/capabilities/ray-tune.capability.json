@@ -1,0 +1,10 @@
+{
+  "framework_id": "ray",
+  "capability_id": "ray-tune-study-runner",
+  "capability_type": "training",
+  "inputs": ["train_request", "tune_grid", "resource_spec", "policy_config"],
+  "outputs": ["best_metrics", "trial_id", "ledger", "model_card_candidate"],
+  "required_gates": ["resource-fit", "drf-fairness", "eval-delta", "model-card-calculus"],
+  "claim_boundary": "Descriptor documents the intended Ray Tune runner capability only. It does not claim all Ray Tune schedulers or searchers are implemented.",
+  "notes": "This descriptor should eventually bind to atlas.ray_runner conformance tests."
+}
