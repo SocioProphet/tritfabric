@@ -17,7 +17,8 @@ This file is the contract-of-record for Atlas v1 on TriTRPC.
 ### Registry
 - ListArtifacts (stream)
 - GetLedger
-- PromoteArtifact
+- PromoteArtifact (compatibility artifact-returning projection)
+- Promote (Trit-visible status projection returning StatusReply)
 
 ### Serve
 - Deploy
@@ -35,9 +36,16 @@ This file is the contract-of-record for Atlas v1 on TriTRPC.
 - AlertWebhook
 
 ## Canonical message families
-- JobId, Status, Artifact, Ledger
+- JobId, Status, TritStatus, StatusReply, Artifact, Ledger
 - SubmitTuneRequest (includes IRSpec, TuneGrid, DatasetSpec, OnnxExportSpec, LedgerSpec, PrecisionSpec, QuantSpec)
 - Serve plane configs (RouterConfig, RouterStatus, StickyConfig, AutoScaleConfig)
+
+## Promotion status semantics
+Promotion MUST be protocol-visible.
+
+- A successful promotion returns `StatusReply.trit.code = TRUE`, `reason = PROMOTED`, and `status.state = SUCCEEDED`.
+- A promotion gate failure returns `StatusReply.trit.code = FALSE`, `reason = PROMOTION_GATE_FAILED`, and `status.state = FAILED`.
+- Compatibility endpoints MAY continue returning gRPC/HTTP precondition errors, but the canonical TriTRPC status projection is `Promote -> StatusReply`.
 
 ## Determinism requirements
 - Field ordering and encoding must follow TriTRPC fixtures and binding rules (see `~/dev/tritrpc` and SocioProphet standards).
