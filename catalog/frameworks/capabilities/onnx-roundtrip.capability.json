@@ -1,0 +1,10 @@
+{
+  "framework_id": "onnx",
+  "capability_id": "onnx-roundtrip-validator",
+  "capability_type": "conversion",
+  "inputs": ["model_artifact", "sample_batch", "export_config", "cosine_threshold"],
+  "outputs": ["onnx_artifact", "onnx_check", "model_card_artifact_ref"],
+  "required_gates": ["onnx-roundtrip", "artifact-digest", "model-card-calculus"],
+  "claim_boundary": "Descriptor documents the intended ONNX round-trip validation surface. It does not claim all operators, dynamic axes, or model families are supported.",
+  "notes": "Should bind to existing onnx_check sidecars and registry artifactRef/ledgerRef promotion gates."
+}
