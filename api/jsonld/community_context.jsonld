@@ -1,0 +1,31 @@
+{
+  "@context": {
+    "atlas": "https://socioprophet.org/atlas#",
+    "schema": "https://schema.org/",
+    "xsd": "http://www.w3.org/2001/XMLSchema#",
+    "CommunityEvent": "atlas:CommunityEvent",
+    "HFEvent": "atlas:HFEvent",
+    "CurationRecord": "atlas:CurationRecord",
+    "CreditRecord": "atlas:CreditRecord",
+    "Curriculum": "atlas:Curriculum",
+    "agentId": "atlas:agentId",
+    "userId": "atlas:userId",
+    "prompt": "atlas:prompt",
+    "response": "atlas:response",
+    "rubric": "atlas:rubric",
+    "score": "atlas:score",
+    "tags": "atlas:tags",
+    "consent": "atlas:consent",
+    "license": "atlas:license",
+    "lineage": "atlas:lineage",
+    "checksum": "atlas:checksum",
+    "credit": "atlas:credit",
+    "creditBasis": "atlas:creditBasis",
+    "prerequisites": "atlas:prerequisites",
+    "exemplars": "atlas:exemplars",
+    "timestamp": {
+      "@id": "schema:dateCreated",
+      "@type": "xsd:dateTime"
+    }
+  }
+}
