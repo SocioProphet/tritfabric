@@ -74,6 +74,18 @@ message Status {
   map<string,string> info = 2;
 }
 
+message TritStatus {
+  string code = 1;    // TRUE | MID | FALSE
+  string reason = 2;  // machine-readable reason, e.g. PROMOTED or PROMOTION_GATE_FAILED
+  map<string,string> info = 3;
+}
+
+message StatusReply {
+  TritStatus trit = 1;
+  Status status = 2;
+  string payload_json = 3; // transport-compatible JSON payload for card/report data
+}
+
 message Artifact {
   string id = 1;
   string uri = 2;
@@ -112,6 +124,9 @@ service RegistryService {
   }
   rpc PromoteArtifact(JobId) returns (Artifact) {
     option (google.api.http) = { post: "/v1/jobs/{id}:promote" body: "*" };
+  }
+  rpc Promote(JobId) returns (StatusReply) {
+    option (google.api.http) = { post: "/v1/promote/{id}" body: "*" };
   }
 }
 
