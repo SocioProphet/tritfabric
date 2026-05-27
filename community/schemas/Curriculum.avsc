@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "name": "Curriculum",
+  "namespace": "atlas.community",
+  "doc": "Community-curated curriculum record for governed learning and evaluation workflows.",
+  "fields": [
+    {"name": "curriculum_id", "type": "string"},
+    {"name": "title", "type": "string"},
+    {"name": "description", "type": "string"},
+    {"name": "prerequisites", "type": {"type": "array", "items": "string"}, "default": []},
+    {"name": "exemplars", "type": {"type": "array", "items": "string"}, "default": []},
+    {"name": "rubric", "type": {"type": "map", "values": "double"}},
+    {"name": "license", "type": "string"},
+    {"name": "lineage", "type": {"type": "array", "items": "string"}},
+    {"name": "ts", "type": "long"}
+  ]
+}

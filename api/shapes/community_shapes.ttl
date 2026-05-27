@@ -1,0 +1,86 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix atlas: <https://socioprophet.dev/ont/atlas#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+atlas:HFEventShape
+    a sh:NodeShape ;
+    sh:targetClass atlas:HFEvent ;
+    sh:property [
+        sh:path atlas:agentId ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path atlas:userId ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path atlas:rubric ;
+        sh:minCount 1 ;
+        sh:message "Human feedback used by community learning must include a rubric." ;
+    ] ;
+    sh:property [
+        sh:path atlas:score ;
+        sh:datatype xsd:double ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path atlas:consent ;
+        sh:datatype xsd:boolean ;
+        sh:hasValue true ;
+        sh:minCount 1 ;
+        sh:message "Human feedback is not eligible for training or distillation unless consent is true." ;
+    ] ;
+    sh:property [
+        sh:path atlas:license ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:minLength 1 ;
+    ] ;
+    sh:property [
+        sh:path atlas:lineage ;
+        sh:minCount 1 ;
+        sh:message "Community learning inputs must preserve lineage/provenance references." ;
+    ] .
+
+atlas:CurationRecordShape
+    a sh:NodeShape ;
+    sh:targetClass atlas:CurationRecord ;
+    sh:property [
+        sh:path atlas:checksum ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path atlas:license ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path atlas:consent ;
+        sh:datatype xsd:boolean ;
+        sh:hasValue true ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path atlas:lineage ;
+        sh:minCount 1 ;
+    ] .
+
+atlas:CurriculumShape
+    a sh:NodeShape ;
+    sh:targetClass atlas:Curriculum ;
+    sh:property [
+        sh:path atlas:rubric ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path atlas:license ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
+        sh:path atlas:lineage ;
+        sh:minCount 1 ;
+    ] .

@@ -1,0 +1,20 @@
+{
+  "type": "record",
+  "name": "HFEvent",
+  "namespace": "atlas.community",
+  "doc": "Human-feedback event eligible for governed community-learning workflows only when consent, provenance, and rubric evidence are present.",
+  "fields": [
+    {"name": "event_id", "type": "string"},
+    {"name": "agent_id", "type": "string"},
+    {"name": "user_id", "type": "string"},
+    {"name": "prompt", "type": "string"},
+    {"name": "response", "type": "string"},
+    {"name": "rubric", "type": {"type": "map", "values": "double"}},
+    {"name": "score", "type": "double"},
+    {"name": "tags", "type": {"type": "map", "values": "string"}, "default": {}},
+    {"name": "consent", "type": "boolean"},
+    {"name": "license", "type": "string"},
+    {"name": "lineage", "type": {"type": "array", "items": "string"}},
+    {"name": "ts", "type": "long"}
+  ]
+}

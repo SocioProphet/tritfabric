@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "name": "CurationRecord",
+  "namespace": "atlas.community",
+  "doc": "Dataset or exemplar curation record with license, checksum, lineage, and consent evidence.",
+  "fields": [
+    {"name": "record_id", "type": "string"},
+    {"name": "submitter_id", "type": "string"},
+    {"name": "artifact_uri", "type": "string"},
+    {"name": "checksum", "type": "string"},
+    {"name": "license", "type": "string"},
+    {"name": "lineage", "type": {"type": "array", "items": "string"}},
+    {"name": "consent", "type": "boolean"},
+    {"name": "tags", "type": {"type": "map", "values": "string"}, "default": {}},
+    {"name": "ts", "type": "long"}
+  ]
+}
