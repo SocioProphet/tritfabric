@@ -4,6 +4,7 @@ from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, Header, HTTPException
 
+from atlas.community_api import router as community_router
 from atlas.rpc.server import OptInGuard  # reuse guard logic
 from atlas.observability.metrics import record_request
 from atlas.trit_status import TRIT_FALSE, TRIT_TRUE, status_reply
@@ -11,6 +12,7 @@ from atlas.trit_status import TRIT_FALSE, TRIT_TRUE, status_reply
 
 def create_app(daemon) -> FastAPI:
     app = FastAPI(title="Atlas OS Service", version="0.1")
+    app.include_router(community_router)
 
     guard = OptInGuard(
         opt_in_required=bool(daemon.policy.get("security", "opt_in_required", default=True)),
