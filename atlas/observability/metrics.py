@@ -45,10 +45,16 @@ ONNX_EXPORTS = Counter(
 ROUTER_LAT_P95 = Gauge("atlas_router_latency_p95_ms", "Router p95 latency ms", ["backend"])
 ROUTER_INFLIGHT = Gauge("atlas_router_inflight", "Router inflight requests", ["backend"])
 ROUTER_WEIGHT = Gauge("atlas_router_weight", "Router weight per backend", ["backend"])
+ROUTER_PRESSURE = Gauge("atlas_router_pressure", "Router autoscaler pressure by backend", ["backend"])
 AUTOSCALE_ADJUST = Counter(
     "atlas_router_autoscale_adjustments_total",
     "Autoscaler weight adjustments",
     ["backend", "reason"],
+)
+AUTOSCALE_DECISIONS = Counter(
+    "atlas_router_autoscale_decisions_total",
+    "Autoscaler decisions by reason and changed flag",
+    ["reason", "changed"],
 )
 
 
@@ -106,5 +112,17 @@ def set_router_stats(
         ROUTER_WEIGHT.labels(backend=k).set(float(v))
 
 
+def set_router_pressure(pressure: Optional[Dict[str, float]]) -> None:
+    for k, v in (pressure or {}).items():
+        ROUTER_PRESSURE.labels(backend=k).set(float(v))
+
+
 def record_autoscale_adjust(backend: str, reason: str) -> None:
     AUTOSCALE_ADJUST.labels(backend=backend, reason=reason).inc()
+
+
+def record_autoscale_decision(reason: str, changed: bool, pressure: Optional[Dict[str, float]] = None, adjusted_backend: Optional[str] = None) -> None:
+    AUTOSCALE_DECISIONS.labels(reason=reason, changed=str(bool(changed)).lower()).inc()
+    set_router_pressure(pressure)
+    if adjusted_backend:
+        record_autoscale_adjust(adjusted_backend, reason)
