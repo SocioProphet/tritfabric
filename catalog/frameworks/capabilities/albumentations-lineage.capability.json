@@ -1,0 +1,10 @@
+{
+  "framework_id": "albumentations",
+  "capability_id": "albumentations-lineage-preprocessor",
+  "capability_type": "dataset",
+  "inputs": ["dataset_manifest", "augmentation_policy", "seed", "lineage_context"],
+  "outputs": ["augmented_dataset_manifest", "augmentation_lineage", "model_card_data_section"],
+  "required_gates": ["dataset-lineage", "augmentation-provenance", "eval-delta", "model-card-calculus"],
+  "claim_boundary": "Descriptor documents the intended augmentation-lineage surface. It does not claim an implemented Albumentations adapter or any approved dataset transformation policy.",
+  "notes": "Should eventually emit deterministic augmentation lineage into model cards before training jobs consume transformed data."
+}
