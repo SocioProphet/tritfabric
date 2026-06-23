@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# loop_dryrun — exercise the WHOLE compounding loop once, end to end:
+#   submit verified SFT → Atlas Ray LoRA train → promote-never-demote gate → hot-load adapter → serve.
+#
+# This is the ONE paid run. Everything upstream is $0-validated (unit tests + tiny-gpt2 + live
+# endpoints), so the first time a real GPU spins is here. Steps 1–3 hit only Atlas (atlasd); steps
+# 4–5 touch the serving cluster. Pass --atlas-only to stop after the gate (no cluster needed — used
+# for the local $0 validation).
+#
+# Env:
+#   ATLAS_HTTP          atlasd base url (default http://127.0.0.1:8000)
+#   SFT_URI             verified SFT dataset the trainer reads (gs://… or a path)   [required]
+#   BASE_MODEL          default Qwen/Qwen2.5-Coder-7B-Instruct
+#   ATLAS_OPT_IN_TOKEN  opt-in token if atlasd requires one
+#   GPU                 GPUs to request (default 1; set 0 for a CPU/local run)
+#   SERVE_NS            serving namespace (default serving)
+# (The adapter to serve is taken from the GATED job's registry card — adapter_path + adapter_sha256 —
+#  NOT a fixed env, so serving always loads exactly this job's verified adapter.)
+set -uo pipefail
+
+ATLAS_HTTP="${ATLAS_HTTP:-http://127.0.0.1:8000}"
+SFT_URI="${SFT_URI:?set SFT_URI to the verified SFT dataset (gs://… or a trainer-readable path)}"
+BASE_MODEL="${BASE_MODEL:-Qwen/Qwen2.5-Coder-7B-Instruct}"
+GPU="${GPU:-1}"
+SERVE_NS="${SERVE_NS:-serving}"
+ATLAS_ONLY=0; [ "${1:-}" = "--atlas-only" ] && ATLAS_ONLY=1
+
+HDR=(-H 'content-type: application/json')
+[ -n "${ATLAS_OPT_IN_TOKEN:-}" ] && HDR+=(-H "X-Opt-In-Token: ${ATLAS_OPT_IN_TOKEN}")
+say() { printf '\n\033[1m== %s ==\033[0m\n' "$*"; }
+jget() { python3 -c "import sys,json;d=json.load(sys.stdin);print($1)" 2>/dev/null; }
+
+# ── 1. submit ───────────────────────────────────────────────────────────────────────────────────
+say "1/5 submit causal_lm_lora job → ${ATLAS_HTTP}/v1/tune"
+REQ=$(printf '{"tenant":"noetica","task":"generation","entrypoint":"causal_lm_lora","metric":"pass_at_1","mode":"max","base_model":"%s","train":{"uri":"%s"},"peft":{"r":16,"alpha":32},"resources":{"CPU":4,"GPU":%s,"MEM":24},"use_ray":true}' "$BASE_MODEL" "$SFT_URI" "$GPU")
+JOB=$(curl -sf "${HDR[@]}" -X POST "${ATLAS_HTTP}/v1/tune" -d "$REQ" | jget 'd["id"]')
+[ -z "$JOB" ] && { echo "  submit failed"; exit 1; }
+echo "  job: $JOB"
+
+# ── 2. train (poll) ───────────────────────────────────────────────────────────────────────────────
+say "2/5 train (Ray LoRA) — polling status"
+for i in $(seq 1 240); do
+  ST=$(curl -sf "${HDR[@]}" "${ATLAS_HTTP}/v1/jobs/${JOB}/status" | jget 'd.get("state","")')
+  echo "  [$i] ${ST:-?}"
+  case "$ST" in SUCCEEDED) break;; FAILED) echo "  ✗ train failed"; exit 1;; esac
+  sleep 15
+done
+
+# ── 3. promote (held-out eval gate: pass@1 base vs base+adapter) ──────────────────────────────────
+say "3/5 promote — held-out eval gate (promote-never-demote)"
+REP=$(curl -sf "${HDR[@]}" -X POST "${ATLAS_HTTP}/v1/jobs/${JOB}/promote")
+[ -z "$REP" ] && { echo "  ✗ promote returned nothing (atlasd unreachable / job not promotable) — aborting"; exit 1; }
+echo "$REP" | python3 -m json.tool 2>/dev/null || { echo "  ✗ promote response is not JSON: $REP"; exit 1; }
+# Read ONLY the authoritative top-level gate decision (the AND of onnx+eval+shacl). daemon.promote
+# wraps it under "report"; a bare run_gates call has it at top level — handle both, never fall back
+# to a single sub-gate. A decision we can't read is a hard error, not a silent "blocked".
+OK=$(echo "$REP" | jget 'str((d.get("report") or d).get("ok", "")).lower()')
+case "$OK" in
+  true)  echo "  ✅ gate PASSED — adapter strictly beats base on held-out pass@1." ;;
+  false) echo "  ⛔ GATE BLOCKED — adapter did not beat base. Not serving (promote-never-demote held)."; exit 0 ;;
+  *)     echo "  ✗ could not read the gate decision from the promote response — aborting"; exit 1 ;;
+esac
+[ "$ATLAS_ONLY" = "1" ] && { echo "  --atlas-only: stopping before serving (no cluster)."; exit 0; }
+
+# ── 4. hot-load the promoted adapter into the running mesh (no redeploy) ───────────────────────────
+say "4/5 hot-load promoted adapter into mesh-vllm (pinned + verified)"
+# Pull the served identity from THIS gated job's card — never a fixed mutable prefix.
+SV=$(echo "$REP" | jget 'json.dumps((d.get("card") or {}).get("serving") or {})')
+SERVED_ID=$(echo "$SV" | jget 'd.get("served_model_id","")')
+ADAPTER_SRC=$(echo "$SV" | jget 'd.get("adapter_path","")')
+WANT_SHA=$(echo "$SV" | jget 'd.get("adapter_sha256","")')
+SERVE_BASE=$(echo "$SV" | jget 'd.get("base_model","")')
+if [ -z "$SERVED_ID" ] || [ -z "$ADAPTER_SRC" ]; then
+  echo "  ✗ promoted card has no serving info (served_model_id/adapter_path) — aborting"; exit 1
+fi
+# Base-model compatibility: a LoRA trained on base A must never be loaded onto base B.
+if [ -n "$SERVE_BASE" ] && [ "$SERVE_BASE" != "$BASE_MODEL" ]; then
+  echo "  ✗ adapter base ($SERVE_BASE) != mesh base ($BASE_MODEL) — refusing to load"; exit 1
+fi
+# Fetch exactly this job's adapter (gs:// or a path) and VERIFY its digest before loading.
+rm -rf ./_adapter && mkdir -p ./_adapter
+case "$ADAPTER_SRC" in
+  gs://*) gsutil -m cp -r "${ADAPTER_SRC%/}/." ./_adapter ;;
+  *)      cp -r "${ADAPTER_SRC%/}/." ./_adapter ;;
+esac
+GOT_SHA=$(python3 - <<'PY'
+import hashlib, os
+h = hashlib.sha256()
+for fn in sorted(os.listdir("./_adapter")):
+    if fn.endswith((".safetensors", ".bin")):
+        h.update(fn.encode())
+        with open(os.path.join("./_adapter", fn), "rb") as f:
+            for c in iter(lambda: f.read(1 << 20), b""):
+                h.update(c)
+print(h.hexdigest())
+PY
+)
+if [ -n "$WANT_SHA" ] && [ "$GOT_SHA" != "$WANT_SHA" ]; then
+  echo "  ✗ adapter digest mismatch — refusing to load (possible tampering/stale)"
+  echo "     want=$WANT_SHA got=$GOT_SHA"; exit 1
+fi
+echo "  ✓ verified ${GOT_SHA:0:16}… on base ${SERVE_BASE:-$BASE_MODEL} — loading as ${SERVED_ID}"
+POD=$(kubectl -n "$SERVE_NS" get pod -l app=mesh-vllm -o name | head -1)
+kubectl -n "$SERVE_NS" cp ./_adapter "${POD#pod/}:/tmp/${SERVED_ID}"
+kubectl -n "$SERVE_NS" exec "$POD" -- curl -sf -X POST localhost:8000/v1/load_lora_adapter \
+  -d "{\"lora_name\":\"${SERVED_ID}\",\"lora_path\":\"/tmp/${SERVED_ID}\"}"
+
+# ── 5. verify the served adapter answers ──────────────────────────────────────────────────────────
+say "5/5 verify served adapter"
+kubectl -n "$SERVE_NS" exec "$POD" -- curl -sf -X POST localhost:8000/v1/chat/completions \
+  -H 'content-type: application/json' \
+  -d "{\"model\":\"${SERVED_ID}\",\"max_tokens\":80,\"messages\":[{\"role\":\"user\",\"content\":\"Write a Python is_prime(n) function.\"}]}" \
+  | jget 'd["choices"][0]["message"]["content"][:240]'
+
+echo ""
+echo "🔁 LOOP CLOSED: trained → gated → promoted → served as ${SERVED_ID}."
+echo "   Point noetica MESH_MODEL / NOETICA_SOVEREIGN_MODEL at '${SERVED_ID}' to use the sharper model."
