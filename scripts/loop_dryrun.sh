@@ -13,15 +13,15 @@
 #   BASE_MODEL          default Qwen/Qwen2.5-Coder-7B-Instruct
 #   ATLAS_OPT_IN_TOKEN  opt-in token if atlasd requires one
 #   GPU                 GPUs to request (default 1; set 0 for a CPU/local run)
-#   ADAPTER_GCS         where the trainer uploaded the adapter (default gs://noetica-brains/adapters/lora-verified)
 #   SERVE_NS            serving namespace (default serving)
+# (The adapter to serve is taken from the GATED job's registry card — adapter_path + adapter_sha256 —
+#  NOT a fixed env, so serving always loads exactly this job's verified adapter.)
 set -uo pipefail
 
 ATLAS_HTTP="${ATLAS_HTTP:-http://127.0.0.1:8000}"
 SFT_URI="${SFT_URI:?set SFT_URI to the verified SFT dataset (gs://… or a trainer-readable path)}"
 BASE_MODEL="${BASE_MODEL:-Qwen/Qwen2.5-Coder-7B-Instruct}"
 GPU="${GPU:-1}"
-ADAPTER_GCS="${ADAPTER_GCS:-gs://noetica-brains/adapters/lora-verified}"
 SERVE_NS="${SERVE_NS:-serving}"
 ATLAS_ONLY=0; [ "${1:-}" = "--atlas-only" ] && ATLAS_ONLY=1
 
@@ -63,9 +63,43 @@ esac
 [ "$ATLAS_ONLY" = "1" ] && { echo "  --atlas-only: stopping before serving (no cluster)."; exit 0; }
 
 # ── 4. hot-load the promoted adapter into the running mesh (no redeploy) ───────────────────────────
-say "4/5 hot-load promoted adapter into mesh-vllm"
-SERVED_ID="noetica-lora-${JOB}"
-gsutil -m cp -r "$ADAPTER_GCS" ./_adapter
+say "4/5 hot-load promoted adapter into mesh-vllm (pinned + verified)"
+# Pull the served identity from THIS gated job's card — never a fixed mutable prefix.
+SV=$(echo "$REP" | jget 'json.dumps((d.get("card") or {}).get("serving") or {})')
+SERVED_ID=$(echo "$SV" | jget 'd.get("served_model_id","")')
+ADAPTER_SRC=$(echo "$SV" | jget 'd.get("adapter_path","")')
+WANT_SHA=$(echo "$SV" | jget 'd.get("adapter_sha256","")')
+SERVE_BASE=$(echo "$SV" | jget 'd.get("base_model","")')
+if [ -z "$SERVED_ID" ] || [ -z "$ADAPTER_SRC" ]; then
+  echo "  ✗ promoted card has no serving info (served_model_id/adapter_path) — aborting"; exit 1
+fi
+# Base-model compatibility: a LoRA trained on base A must never be loaded onto base B.
+if [ -n "$SERVE_BASE" ] && [ "$SERVE_BASE" != "$BASE_MODEL" ]; then
+  echo "  ✗ adapter base ($SERVE_BASE) != mesh base ($BASE_MODEL) — refusing to load"; exit 1
+fi
+# Fetch exactly this job's adapter (gs:// or a path) and VERIFY its digest before loading.
+rm -rf ./_adapter && mkdir -p ./_adapter
+case "$ADAPTER_SRC" in
+  gs://*) gsutil -m cp -r "${ADAPTER_SRC%/}/." ./_adapter ;;
+  *)      cp -r "${ADAPTER_SRC%/}/." ./_adapter ;;
+esac
+GOT_SHA=$(python3 - <<'PY'
+import hashlib, os
+h = hashlib.sha256()
+for fn in sorted(os.listdir("./_adapter")):
+    if fn.endswith((".safetensors", ".bin")):
+        h.update(fn.encode())
+        with open(os.path.join("./_adapter", fn), "rb") as f:
+            for c in iter(lambda: f.read(1 << 20), b""):
+                h.update(c)
+print(h.hexdigest())
+PY
+)
+if [ -n "$WANT_SHA" ] && [ "$GOT_SHA" != "$WANT_SHA" ]; then
+  echo "  ✗ adapter digest mismatch — refusing to load (possible tampering/stale)"
+  echo "     want=$WANT_SHA got=$GOT_SHA"; exit 1
+fi
+echo "  ✓ verified ${GOT_SHA:0:16}… on base ${SERVE_BASE:-$BASE_MODEL} — loading as ${SERVED_ID}"
 POD=$(kubectl -n "$SERVE_NS" get pod -l app=mesh-vllm -o name | head -1)
 kubectl -n "$SERVE_NS" cp ./_adapter "${POD#pod/}:/tmp/${SERVED_ID}"
 kubectl -n "$SERVE_NS" exec "$POD" -- curl -sf -X POST localhost:8000/v1/load_lora_adapter \
