@@ -62,27 +62,56 @@ class PromotionController:
                 onnx_reason = "missing onnx_check.json but runtime_check=true"
 
         # --- Gate: eval delta ---
-        # We support a simple baseline supplied in req: req["baseline_metrics"].
+        # Baseline comes from the submit req (req["baseline_metrics"]) OR, for the train→eval loop
+        # where the base score is only known after evaluation, from a baseline_eval.json artifact the
+        # trainer writes (base model's held-out score). Without either, the gate can't compare → SKIP.
+        # If a metric was requested (metric_name set) the comparison is REQUIRED: a missing baseline or
+        # missing new value means the eval did not run, so we FAIL CLOSED (never promote an unevaluated
+        # model — a crashed eval must not become a green light). Only when no metric is requested do we
+        # legitimately SKIP. And the decision is STRICTLY-BETTER: a tie or a regression does NOT promote
+        # — we only swap in an adapter that measurably beats the base, which is what makes
+        # "promote-never-demote" mean something on a noisy held-out set.
         eval_ok = True
         eval_reason = "SKIP"
-        baseline = req.get("baseline_metrics") or {}
+        baseline = req.get("baseline_metrics") or self._read_json(os.path.join(jdir, "baseline_eval.json")) or {}
         metric_name = req.get("metric") or (req.get("eval") or {}).get("metric") or ""
-        if baseline and metric_name and metric_name in baseline:
-            try:
-                base_v = float(baseline[metric_name])
-                new_v = float((best.get("metrics") or {}).get(metric_name))
-                # allowed regression: new_v >= base_v - thr  (for "max" metrics)
-                # if mode is "min", invert.
-                mode = (req.get("mode") or "max").lower()
-                if mode == "min":
-                    eval_ok = (new_v <= base_v + self.eval_delta_thr)
-                    eval_reason = f"min: new={new_v:.6f} base={base_v:.6f} thr={self.eval_delta_thr:.6f}"
-                else:
-                    eval_ok = (new_v >= base_v - self.eval_delta_thr)
-                    eval_reason = f"max: new={new_v:.6f} base={base_v:.6f} thr={self.eval_delta_thr:.6f}"
-            except Exception as e:
+        new_metrics = best.get("metrics") or {}
+        if metric_name:
+            if metric_name not in baseline or metric_name not in new_metrics:
                 eval_ok = False
-                eval_reason = f"eval delta parse error: {e}"
+                eval_reason = (
+                    f"required metric '{metric_name}' missing — eval did not run "
+                    f"(baseline={metric_name in baseline}, new={metric_name in new_metrics})"
+                )
+            else:
+                try:
+                    base_v = float(baseline[metric_name])
+                    new_v = float(new_metrics[metric_name])
+                    thr = self.eval_delta_thr
+                    mode = (req.get("mode") or "max").lower()
+                    if mode == "min":
+                        eval_ok = new_v < base_v - thr  # strictly lower (better); ties + regressions blocked
+                        eval_reason = f"min strict: new={new_v:.6f} < base={base_v:.6f} - thr={thr:.6f} -> {eval_ok}"
+                    else:
+                        eval_ok = new_v > base_v + thr  # strictly higher (better); ties + regressions blocked
+                        eval_reason = f"max strict: new={new_v:.6f} > base={base_v:.6f} + thr={thr:.6f} -> {eval_ok}"
+                except Exception as e:
+                    eval_ok = False
+                    eval_reason = f"eval delta parse error: {e}"
+
+            # MULTI-DOMAIN NON-REGRESSION: even if the primary metric improved, an adapter that
+            # regressed ANY other domain (qa / instruction-following / safety) must NOT promote —
+            # "never demote" covers every domain the base was scored on, not just code.
+            base_domains = baseline.get("domain_scores") or {}
+            new_domains = new_metrics.get("domain_scores") or {}
+            if eval_ok and base_domains and new_domains:
+                regressed = [
+                    d for d, bv in base_domains.items()
+                    if d != "code" and float(new_domains.get(d, 0.0)) < float(bv) - self.eval_delta_thr
+                ]
+                if regressed:
+                    eval_ok = False
+                    eval_reason += f" | BLOCKED — regressed domains: {regressed}"
 
         # --- Gate: SHACL ---
         # SHACL is executed by the Registry during promotion; here we just check whether a report exists.

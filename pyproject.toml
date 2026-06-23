@@ -23,6 +23,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0.0"]
+finetune = ["transformers>=4.40.0", "peft>=0.11.0", "datasets>=2.19.0", "accelerate>=0.30.0"]
 grpc = ["grpcio>=1.64.0", "grpcio-tools>=1.64.0", "protobuf>=5.0.0"]
 onnx = ["onnxruntime>=1.18.0", "onnx>=1.16.0"]
 ray = ["ray[serve,tune]>=2.10.0"]
