@@ -19,7 +19,7 @@ def test_registry_carries_adapter_into_serving_block(tmp_path, monkeypatch):
     adapter = str(jdir / "adapter")
     # The trainer's model_card.json (written before promote overwrites it).
     (jdir / "model_card.json").write_text(
-        json.dumps({"base_model": "Qwen/Qwen2.5-Coder-7B-Instruct", "adapter_path": adapter, "method": {"kind": "lora", "r": 16}})
+        json.dumps({"base_model": "Qwen/Qwen2.5-Coder-7B-Instruct", "adapter_path": adapter, "adapter_sha256": "abc123", "method": {"kind": "lora", "r": 16}})
     )
 
     card = r.promote(
@@ -32,6 +32,7 @@ def test_registry_carries_adapter_into_serving_block(tmp_path, monkeypatch):
     assert sv["engine"] == "vllm"
     assert sv["base_model"] == "Qwen/Qwen2.5-Coder-7B-Instruct"
     assert sv["adapter_path"] == adapter
+    assert sv["adapter_sha256"] == "abc123"   # serving verifies this before load
     assert sv["served_model_id"] == "noetica-lora-jobX"
     # and it's persisted in the rewritten card
     persisted = json.loads((jdir / "model_card.json").read_text())

@@ -90,3 +90,16 @@ def test_trainer_error_propagates_not_fake_passed(tmp_path, monkeypatch):
     runner = RayRunner(artifacts_root=str(tmp_path))
     with pytest.raises(RuntimeError):
         runner._run_with_ray("job-fail", {"entrypoint": "causal_lm_lora"})
+
+
+def test_adapter_digest_deterministic_and_weight_sensitive(tmp_path):
+    """The served adapter's identity hash must be stable for the same weights and change when the
+    weights change — so serving can pin to and verify exactly the gated job's adapter."""
+    d = tmp_path / "adapter"
+    d.mkdir()
+    (d / "adapter_model.safetensors").write_bytes(b"weights-v1")
+    (d / "adapter_config.json").write_text("{}")   # non-weight files don't affect the digest
+    h1 = clm.adapter_digest(str(d))
+    assert len(h1) == 64 and h1 == clm.adapter_digest(str(d))   # deterministic
+    (d / "adapter_model.safetensors").write_bytes(b"weights-v2")
+    assert clm.adapter_digest(str(d)) != h1   # changes with the weights

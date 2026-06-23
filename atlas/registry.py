@@ -102,6 +102,7 @@ class Registry:
                     "engine": "vllm",  # served via `vllm --enable-lora`
                     "base_model": _tcard.get("base_model", ""),
                     "adapter_path": _tcard.get("adapter_path", ""),
+                    "adapter_sha256": _tcard.get("adapter_sha256", ""),  # serving verifies this before load
                     "method": _tcard.get("method", {}),
                     "served_model_id": f"{req.get('tenant') or 'noetica'}-lora-{job_id}",
                 }

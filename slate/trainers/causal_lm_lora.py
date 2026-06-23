@@ -72,8 +72,32 @@ def _resolve(req: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def build_model_card(job_dir: str, cfg: Dict[str, Any], metrics: Dict[str, Any]) -> Dict[str, Any]:
-    """Atlas model-card artifact (artifacts/<job_id>/model_card.json)."""
+def adapter_digest(adapter_dir: str) -> str:
+    """Deterministic sha256 over the adapter's weight files — the identity the serving step verifies
+    before loading, so a gated job's adapter cannot be swapped for a stale or poisoned one."""
+    import hashlib
+
+    h = hashlib.sha256()
+    if os.path.isdir(adapter_dir):
+        for fn in sorted(os.listdir(adapter_dir)):
+            if fn.endswith((".safetensors", ".bin")):
+                h.update(fn.encode())
+                with open(os.path.join(adapter_dir, fn), "rb") as f:
+                    for chunk in iter(lambda: f.read(1 << 20), b""):
+                        h.update(chunk)
+    return h.hexdigest()
+
+
+def build_model_card(
+    job_dir: str,
+    cfg: Dict[str, Any],
+    metrics: Dict[str, Any],
+    adapter_path: str | None = None,
+    adapter_sha256: str | None = None,
+) -> Dict[str, Any]:
+    """Atlas model-card artifact (artifacts/<job_id>/model_card.json). adapter_path is where serving
+    pulls the adapter (a JOB-SCOPED location); adapter_sha256 pins its identity for verification."""
+    local_adapter = os.path.join(job_dir, "adapter")
     card = {
         "task": "generation",
         "family": "causal-lm-lora",
@@ -81,7 +105,8 @@ def build_model_card(job_dir: str, cfg: Dict[str, Any], metrics: Dict[str, Any])
         "method": {"kind": "lora", "r": cfg["r"], "alpha": cfg["alpha"]},
         "dataset": {"uri": cfg["sft_path"], "examples": metrics.get("examples")},
         "metrics": metrics,
-        "adapter_path": os.path.join(job_dir, "adapter"),
+        "adapter_path": adapter_path or local_adapter,
+        "adapter_sha256": adapter_sha256 if adapter_sha256 is not None else adapter_digest(local_adapter),
         "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
     with open(os.path.join(job_dir, "model_card.json"), "w", encoding="utf-8") as f:
@@ -221,5 +246,21 @@ def train_causal_lm_lora(job_dir: str, req: Dict[str, Any]) -> Dict[str, Any]:
     except Exception as e:
         metrics["eval_error"] = str(e)[:300]
 
-    build_model_card(job_dir, cfg, metrics)
+    # Pin + publish: digest the adapter and, when a prefix is configured, upload it to a JOB-SCOPED
+    # path so the serving step pulls exactly THIS gated job's adapter (verified by hash) — never a
+    # fixed mutable prefix that could serve a stale/poisoned adapter for a passing gate.
+    digest = adapter_digest(adapter_dir)
+    published = adapter_dir
+    prefix = os.getenv("ADAPTER_GCS_PREFIX", "").strip().rstrip("/")
+    if prefix:
+        import subprocess
+
+        job_id = os.path.basename(job_dir.rstrip("/"))
+        dest = f"{prefix}/{job_id}"
+        try:
+            subprocess.check_call(["gsutil", "-m", "cp", "-r", f"{adapter_dir}/.", dest])
+            published = dest
+        except Exception as e:
+            metrics["publish_error"] = str(e)[:200]
+    build_model_card(job_dir, cfg, metrics, adapter_path=published, adapter_sha256=digest)
     return metrics
