@@ -47,6 +47,46 @@ HELDOUT: List[Problem] = [
         "Write a Python function count_vowels(s: str) -> int counting a,e,i,o,u case-insensitively.",
         'assert count_vowels("Hello") == 2\nassert count_vowels("xyz") == 0',
     ),
+    Problem(
+        "sum_digits",
+        "Write a Python function sum_digits(n: int) -> int summing the decimal digits of abs(n).",
+        "assert sum_digits(123) == 6\nassert sum_digits(-405) == 9\nassert sum_digits(0) == 0",
+    ),
+    Problem(
+        "dedup_order",
+        "Write a Python function dedup_order(xs: list) -> list removing duplicates but preserving first-seen order.",
+        "assert dedup_order([1,3,1,2,3]) == [1,3,2]\nassert dedup_order([]) == []",
+    ),
+    Problem(
+        "to_snake",
+        "Write a Python function to_snake(s: str) -> str converting a camelCase string to snake_case.",
+        'assert to_snake("camelCase") == "camel_case"\nassert to_snake("HTTPServer") == "h_t_t_p_server"',
+    ),
+    Problem(
+        "clamp",
+        "Write a Python function clamp(x: float, lo: float, hi: float) -> float clamping x into [lo, hi].",
+        "assert clamp(5, 0, 3) == 3\nassert clamp(-1, 0, 3) == 0\nassert clamp(2, 0, 3) == 2",
+    ),
+    Problem(
+        "is_sorted",
+        "Write a Python function is_sorted(xs: list[int]) -> bool returning True if xs is non-decreasing.",
+        "assert is_sorted([1,2,2,3]) is True\nassert is_sorted([1,3,2]) is False\nassert is_sorted([]) is True",
+    ),
+    Problem(
+        "char_freq",
+        "Write a Python function char_freq(s: str) -> dict mapping each character to its count.",
+        'assert char_freq("aab") == {"a": 2, "b": 1}\nassert char_freq("") == {}',
+    ),
+    Problem(
+        "rotate",
+        "Write a Python function rotate(xs: list, k: int) -> list rotating xs right by k (k may exceed len).",
+        "assert rotate([1,2,3,4], 1) == [4,1,2,3]\nassert rotate([1,2,3], 4) == [3,1,2]\nassert rotate([], 2) == []",
+    ),
+    Problem(
+        "most_common",
+        "Write a Python function most_common(xs: list) -> object returning the most frequent element (ties: earliest).",
+        "assert most_common([1,2,2,3,3]) == 2\nassert most_common([5]) == 5",
+    ),
 ]
 
 _FENCE = re.compile(r"```(?:python)?\s*(.*?)```", re.DOTALL)
@@ -60,19 +100,26 @@ def extract_code(text: str) -> str | None:
 
 
 def grade(solution: str | None, test: str) -> bool:
-    """True only if the solution passes the hidden oracle cleanly."""
+    """True only if the hidden asserts ran to completion and passed.
+
+    Judged by a SENTINEL FILE written *after* the appended asserts, plus a clean exit code — never by
+    the model's stdout (which it can fake by printing a success marker). A wrong solution fails an
+    assert (AssertionError → non-zero exit, sentinel never written); a solution that exits early or
+    swallows the asserts also never reaches the sentinel. The sentinel path is a random temp file the
+    candidate code never sees, so a pass cannot be forged.
+    """
     if not solution:
         return False
     with tempfile.TemporaryDirectory() as d:
-        path = os.path.join(d, "c.py")
+        path = os.path.join(d, "candidate.py")
+        sentinel = os.path.join(d, "passed.flag")
         with open(path, "w") as fh:
-            fh.write(f"{solution}\n\n{test}\nprint('HIDDEN_OK')\n")
+            fh.write(f"{solution}\n\n{test}\n\nopen({sentinel!r}, 'w').close()\n")
         try:
             out = subprocess.run(["python3", path], capture_output=True, text=True, timeout=12)
         except subprocess.TimeoutExpired:
             return False
-    stdout = out.stdout or ""
-    return "HIDDEN_OK" in stdout and not re.search(r"\b(Error|Traceback|assert)\b", stdout.replace("HIDDEN_OK", ""))
+        return out.returncode == 0 and os.path.exists(sentinel)
 
 
 def pass_at_1(generate: Callable[[str], str], problems: List[Problem] | None = None) -> float:

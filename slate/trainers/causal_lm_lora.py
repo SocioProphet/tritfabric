@@ -206,8 +206,9 @@ def train_causal_lm_lora(job_dir: str, req: Dict[str, Any]) -> Dict[str, Any]:
         metrics = _train_once(cfg, adapter_dir)
 
     # Held-out eval — score base+adapter AND base so the promotion gate can enforce promote-never-
-    # demote (an adapter that doesn't beat the base on held-out pass@1 must not promote). Best-effort:
-    # if the eval can't run, the gate falls back to SKIP rather than blocking a legitimate promote.
+    # demote (an adapter that doesn't beat the base on held-out pass@1 must not promote). If the eval
+    # CRASHES we record the error and deliberately leave pass_at_1 / baseline_eval.json UNwritten — the
+    # gate then fail-closes on the missing metric (a broken evaluator must never become a green light).
     try:
         from slate.eval.heldout_codeeval import pass_at_1
 
@@ -217,8 +218,8 @@ def train_causal_lm_lora(job_dir: str, req: Dict[str, Any]) -> Dict[str, Any]:
         # The baseline artifact the gate reads — base's held-out score under the compared metric key.
         with open(os.path.join(job_dir, "baseline_eval.json"), "w", encoding="utf-8") as f:
             json.dump({"pass_at_1": base_score}, f, indent=2)
-    except Exception:
-        pass
+    except Exception as e:
+        metrics["eval_error"] = str(e)[:300]
 
     build_model_card(job_dir, cfg, metrics)
     return metrics

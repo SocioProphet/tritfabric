@@ -87,8 +87,14 @@ class Daemon:
 
     def promote(self, job_id: str) -> Dict[str, Any]:
         with self._lock:
+            state = (self._status.get(job_id, {}) or {}).get("state")
             req = dict(self._reqs.get(job_id, {}))
             best = dict(self._best.get(job_id, {}))
+        # Never promote a job that did not finish training with real metrics. Without this, an unknown,
+        # queued, or FAILED job reaches the gate with empty metrics and (with no baseline) would SKIP
+        # straight to a green light over a model that never trained.
+        if state != "SUCCEEDED" or not (best.get("metrics") or {}):
+            raise ValueError(f"cannot promote job {job_id}: state={state!r} has_metrics={bool(best.get('metrics'))}")
         card = self.registry.promote(job_id, req, {"metrics": best.get("metrics", {})})
         # After promotion, run gate report (reads onnx_check + shacl report if any).
         report = self.promoter.on_study_complete(job_id, req, {"metrics": best.get("metrics", {})})
