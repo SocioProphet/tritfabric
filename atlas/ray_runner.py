@@ -85,9 +85,27 @@ class RayRunner:
         return {"best_metrics": best_metrics, "trial_id": "trial-0"}
 
     def _run_with_ray(self, job_id: str, req: Dict[str, Any]) -> Dict[str, Any]:
-        # Placeholder hook point.
-        # Real implementation would:
-        # - build trainable from req["ir"], req["entrypoint"], etc
-        # - allocate placement groups from req["resources"]
-        # - run Ray Tune/Trian and collect best result
+        # Dispatch on entrypoint. Real trainers produce real artifacts + metrics (and write
+        # ledger.json themselves), feeding the promotion gate genuine numbers instead of the
+        # deterministic placeholder from _run_local. Unknown entrypoints fall back to local.
+        entrypoint = str(req.get("entrypoint") or "")
+        if entrypoint == "causal_lm_lora":
+            from slate.trainers.causal_lm_lora import train_causal_lm_lora
+
+            job_dir = self._job_dir(job_id)
+            os.makedirs(job_dir, exist_ok=True)
+            # The trainer writes the LoRA adapter + model_card.json and returns best_metrics.
+            best_metrics = train_causal_lm_lora(job_dir, req)
+            ledger = {
+                "job_id": job_id,
+                "trial_id": "trial-0",
+                "best_metrics": best_metrics,
+                "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "note": f"causal_lm_lora trainer (entrypoint={entrypoint})",
+            }
+            with open(os.path.join(job_dir, "ledger.json"), "w", encoding="utf-8") as f:
+                json.dump(ledger, f, indent=2)
+            return {"best_metrics": best_metrics, "trial_id": "trial-0"}
+
+        # Other entrypoints: not yet wired to a real trainer — deterministic local fallback.
         return self._run_local(job_id, req)

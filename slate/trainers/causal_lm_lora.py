@@ -1,0 +1,183 @@
+"""causal_lm_lora — Atlas Slate trainer: LoRA fine-tune of a causal-LM on verified traces.
+
+`slate/peft` covers conv/vision LoRA (ResNet); this is the missing transformer/causal-LM trainer
+that fine-tunes a Qwen-class base on rejection-sampled VERIFIED traces. It is the entrypoint the
+Atlas runner dispatches for `entrypoint == "causal_lm_lora"` (see atlas/ray_runner.py), and it
+conforms to the Atlas artifact contract: it writes the LoRA adapter + `model_card.json` into the
+job dir and returns `best_metrics` for `ledger.json` + the promotion gate.
+
+Runs under Ray Train (TorchTrainer) when Ray is installed and a GPU is requested; otherwise trains
+directly (CPU / single process) — so it is exercisable in CI without a cluster.
+
+Heavy deps (torch/transformers/peft/datasets) are imported lazily inside the train path, matching
+the repo convention (slate/utils/ledger.py), so importing this module never requires them — the
+pure data path (`read_sft_texts`) and the model-card builder stay dependency-free + unit-testable.
+
+Expected `req` keys (all optional except the dataset):
+    train.uri / dataset.uri / SFT_PATH(env)   path to the verified SFT JSONL  (required)
+    base_model                                default Qwen/Qwen2.5-Coder-7B-Instruct
+    peft.r / peft.alpha                       LoRA rank/alpha (default 16 / 32)
+    epochs / batch_size / lr / max_len
+    resources.GPU                             >0 ⇒ try Ray Train on GPU
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import time
+from typing import Any, Dict, List
+
+
+# ── pure data path (stdlib only — unit-testable without torch/ray) ─────────────────────────────
+
+def read_sft_texts(path: str) -> List[str]:
+    """Parse a verified-trace JSONL into flat training texts. Tolerant of three shapes:
+    {"text": ...} | {"input": ..., "output": ...} | {"prompt": ..., "completion": ...}."""
+    texts: List[str] = []
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            row = json.loads(line)
+            text = row.get("text")
+            if not text:
+                left = row.get("input") or row.get("prompt") or ""
+                right = row.get("output") or row.get("completion") or ""
+                text = f"{left}\n{right}".strip()
+            if text:
+                texts.append(text)
+    return texts
+
+
+def _resolve(req: Dict[str, Any]) -> Dict[str, Any]:
+    peft = req.get("peft") or {}
+    sft = (
+        (req.get("train") or {}).get("uri")
+        or (req.get("dataset") or {}).get("uri")
+        or os.getenv("SFT_PATH")
+    )
+    if not sft:
+        raise ValueError("causal_lm_lora: no SFT dataset (set req.train.uri / req.dataset.uri / SFT_PATH)")
+    return {
+        "base_model": req.get("base_model") or os.getenv("BASE_MODEL", "Qwen/Qwen2.5-Coder-7B-Instruct"),
+        "sft_path": sft,
+        "r": int(peft.get("r", os.getenv("LORA_R", 16))),
+        "alpha": int(peft.get("alpha", os.getenv("LORA_ALPHA", 32))),
+        "epochs": float(req.get("epochs", os.getenv("EPOCHS", 3))),
+        "bs": int(req.get("batch_size", os.getenv("BATCH_SIZE", 4))),
+        "lr": float(req.get("lr", os.getenv("LR", 2e-4))),
+        "max_len": int(req.get("max_len", os.getenv("MAX_LEN", 1024))),
+    }
+
+
+def build_model_card(job_dir: str, cfg: Dict[str, Any], metrics: Dict[str, Any]) -> Dict[str, Any]:
+    """Atlas model-card artifact (artifacts/<job_id>/model_card.json)."""
+    card = {
+        "task": "generation",
+        "family": "causal-lm-lora",
+        "base_model": cfg["base_model"],
+        "method": {"kind": "lora", "r": cfg["r"], "alpha": cfg["alpha"]},
+        "dataset": {"uri": cfg["sft_path"], "examples": metrics.get("examples")},
+        "metrics": metrics,
+        "adapter_path": os.path.join(job_dir, "adapter"),
+        "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    with open(os.path.join(job_dir, "model_card.json"), "w", encoding="utf-8") as f:
+        json.dump(card, f, indent=2)
+    return card
+
+
+# ── the actual fine-tune (heavy deps imported lazily) ──────────────────────────────────────────
+
+def _train_once(cfg: Dict[str, Any], adapter_dir: str) -> Dict[str, Any]:
+    import torch
+    from datasets import Dataset
+    from peft import LoraConfig, get_peft_model
+    from transformers import (
+        AutoModelForCausalLM,
+        AutoTokenizer,
+        DataCollatorForLanguageModeling,
+        Trainer,
+        TrainingArguments,
+    )
+
+    tok = AutoTokenizer.from_pretrained(cfg["base_model"])
+    if tok.pad_token is None:
+        tok.pad_token = tok.eos_token
+
+    model = AutoModelForCausalLM.from_pretrained(cfg["base_model"])
+    model = get_peft_model(
+        model,
+        LoraConfig(r=cfg["r"], lora_alpha=cfg["alpha"], lora_dropout=0.05, task_type="CAUSAL_LM"),
+    )
+    trainable = int(sum(p.numel() for p in model.parameters() if p.requires_grad))
+
+    texts = read_sft_texts(cfg["sft_path"])
+    if not texts:
+        raise ValueError(f"no usable training examples in {cfg['sft_path']}")
+    ds = Dataset.from_dict({"text": texts}).map(
+        lambda b: tok(b["text"], truncation=True, padding="max_length", max_length=cfg["max_len"]),
+        batched=True,
+        remove_columns=["text"],
+    )
+
+    args = TrainingArguments(
+        output_dir=adapter_dir,
+        per_device_train_batch_size=cfg["bs"],
+        num_train_epochs=cfg["epochs"],
+        learning_rate=cfg["lr"],
+        logging_steps=5,
+        save_strategy="no",
+        report_to=[],
+        # GPU only with real CUDA (the Ray GPU worker); off-GPU/CPU/Mac runs are pinned to CPU.
+        use_cpu=not torch.cuda.is_available(),
+    )
+    trainer = Trainer(
+        model=model,
+        args=args,
+        train_dataset=ds,
+        data_collator=DataCollatorForLanguageModeling(tok, mlm=False),
+    )
+    result = trainer.train()
+    model.save_pretrained(adapter_dir)
+    tok.save_pretrained(adapter_dir)
+
+    loss = float(getattr(result, "training_loss", 0.0) or 0.0)
+    return {"train_loss": loss, "trainable_params": trainable, "examples": len(texts)}
+
+
+def train_causal_lm_lora(job_dir: str, req: Dict[str, Any]) -> Dict[str, Any]:
+    """Atlas entrypoint. Fine-tunes the base on verified traces, writes the adapter + model_card,
+    and returns best_metrics for the ledger + promotion gate. Uses Ray Train on GPU when available."""
+    cfg = _resolve(req)
+    adapter_dir = os.path.join(job_dir, "adapter")
+    os.makedirs(adapter_dir, exist_ok=True)
+
+    want_gpu = float((req.get("resources") or {}).get("GPU", 0) or 0) > 0
+    metrics: Dict[str, Any]
+    if want_gpu:
+        try:
+            from ray.train import ScalingConfig
+            from ray.train.torch import TorchTrainer
+
+            holder: Dict[str, Any] = {}
+
+            def _loop(config: Dict[str, Any]) -> None:
+                holder.update(_train_once(config["cfg"], config["adapter_dir"]))
+
+            TorchTrainer(
+                _loop,
+                train_loop_config={"cfg": cfg, "adapter_dir": adapter_dir},
+                scaling_config=ScalingConfig(num_workers=int(os.getenv("RAY_NUM_WORKERS", "1")), use_gpu=True),
+            ).fit()
+            metrics = holder or {"train_loss": 0.0}
+        except Exception:
+            # Ray/GPU path unavailable — fall back to a direct in-process train (still produces artifacts).
+            metrics = _train_once(cfg, adapter_dir)
+    else:
+        metrics = _train_once(cfg, adapter_dir)
+
+    build_model_card(job_dir, cfg, metrics)
+    return metrics
