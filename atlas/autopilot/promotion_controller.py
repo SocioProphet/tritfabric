@@ -99,6 +99,20 @@ class PromotionController:
                     eval_ok = False
                     eval_reason = f"eval delta parse error: {e}"
 
+            # MULTI-DOMAIN NON-REGRESSION: even if the primary metric improved, an adapter that
+            # regressed ANY other domain (qa / instruction-following / safety) must NOT promote —
+            # "never demote" covers every domain the base was scored on, not just code.
+            base_domains = baseline.get("domain_scores") or {}
+            new_domains = new_metrics.get("domain_scores") or {}
+            if eval_ok and base_domains and new_domains:
+                regressed = [
+                    d for d, bv in base_domains.items()
+                    if d != "code" and float(new_domains.get(d, 0.0)) < float(bv) - self.eval_delta_thr
+                ]
+                if regressed:
+                    eval_ok = False
+                    eval_reason += f" | BLOCKED — regressed domains: {regressed}"
+
         # --- Gate: SHACL ---
         # SHACL is executed by the Registry during promotion; here we just check whether a report exists.
         shacl_report_path = os.path.join(jdir, "shacl_report.txt")

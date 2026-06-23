@@ -64,6 +64,36 @@ def test_gate_blocks_when_adapter_worse_than_base(tmp_path):
     assert report["ok"] is False
 
 
+def test_gate_blocks_domain_regression_even_if_code_improves(tmp_path):
+    # Multi-domain non-regression: code up but SAFETY down → must NOT promote.
+    job = "job-saferegress"
+    (tmp_path / job).mkdir()
+    (tmp_path / job / "baseline_eval.json").write_text(
+        json.dumps({"pass_at_1": 0.5, "domain_scores": {"code": 0.5, "safety": 1.0, "qa": 0.75}})
+    )
+    report = _gate(tmp_path).run_gates(
+        job,
+        {"metric": "pass_at_1", "mode": "max"},
+        {"metrics": {"pass_at_1": 0.75, "domain_scores": {"code": 0.75, "safety": 0.5, "qa": 0.75}}},
+    )
+    assert report["gates"]["eval_delta"]["ok"] is False
+    assert "regressed" in report["gates"]["eval_delta"]["reason"].lower()
+
+
+def test_gate_promotes_when_code_improves_and_no_domain_regresses(tmp_path):
+    job = "job-allgood"
+    (tmp_path / job).mkdir()
+    (tmp_path / job / "baseline_eval.json").write_text(
+        json.dumps({"pass_at_1": 0.5, "domain_scores": {"code": 0.5, "safety": 1.0, "qa": 0.5}})
+    )
+    report = _gate(tmp_path).run_gates(
+        job,
+        {"metric": "pass_at_1", "mode": "max"},
+        {"metrics": {"pass_at_1": 0.75, "domain_scores": {"code": 0.75, "safety": 1.0, "qa": 0.75}}},
+    )
+    assert report["gates"]["eval_delta"]["ok"] is True
+
+
 def test_gate_blocks_a_tie(tmp_path):
     # A tie is not an improvement — strictly-better means it must NOT promote (promote-never-demote).
     job = "job-tie"

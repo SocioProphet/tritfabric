@@ -253,14 +253,17 @@ def train_causal_lm_lora(job_dir: str, req: Dict[str, Any]) -> Dict[str, Any]:
     # CRASHES we record the error and deliberately leave pass_at_1 / baseline_eval.json UNwritten — the
     # gate then fail-closes on the missing metric (a broken evaluator must never become a green light).
     try:
-        from slate.eval.heldout_codeeval import pass_at_1
+        from slate.eval.multidomain import evaluate_all
 
-        metrics["pass_at_1"] = pass_at_1(_make_generate(cfg["base_model"], adapter_dir))
-        base_score = pass_at_1(_make_generate(cfg["base_model"], None))
-        metrics["base_pass_at_1"] = base_score
-        # The baseline artifact the gate reads — base's held-out score under the compared metric key.
+        adapter_scores = evaluate_all(_make_generate(cfg["base_model"], adapter_dir))
+        base_scores = evaluate_all(_make_generate(cfg["base_model"], None))
+        # 'code' stays the primary strict-better metric; ALL domains (qa/instruction/safety) guard
+        # non-regression so promote-never-demote covers more than code.
+        metrics["pass_at_1"] = adapter_scores.get("code", 0.0)
+        metrics["base_pass_at_1"] = base_scores.get("code", 0.0)
+        metrics["domain_scores"] = adapter_scores
         with open(os.path.join(job_dir, "baseline_eval.json"), "w", encoding="utf-8") as f:
-            json.dump({"pass_at_1": base_score}, f, indent=2)
+            json.dump({"pass_at_1": base_scores.get("code", 0.0), "domain_scores": base_scores}, f, indent=2)
     except Exception as e:
         metrics["eval_error"] = str(e)[:300]
 
