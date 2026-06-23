@@ -92,6 +92,16 @@ def test_trainer_error_propagates_not_fake_passed(tmp_path, monkeypatch):
         runner._run_with_ray("job-fail", {"entrypoint": "causal_lm_lora"})
 
 
+def test_mix_anchor_holds_base_distribution():
+    verified = ["v1", "v2", "v3", "v4"]
+    anchor = ["a1", "a2", "a3", "a4", "a5", "a6"]
+    texts, nv, na = clm.mix_anchor(verified, anchor, 0.5)
+    assert nv == 4 and na == 2                                  # 0.5 * 4 verified = 2 anchor
+    assert texts == ["v1", "v2", "v3", "v4", "a1", "a2"]        # deterministic (anchor head)
+    assert clm.mix_anchor(verified, [], 0.5) == (verified, 4, 0)  # no anchor → unchanged
+    assert clm.mix_anchor(verified, ["a"], 0.5)[2] == 1          # caps at available anchor
+
+
 def test_adapter_digest_deterministic_and_weight_sensitive(tmp_path):
     """The served adapter's identity hash must be stable for the same weights and change when the
     weights change — so serving can pin to and verify exactly the gated job's adapter."""

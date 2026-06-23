@@ -69,7 +69,23 @@ def _resolve(req: Dict[str, Any]) -> Dict[str, Any]:
         "bs": int(req.get("batch_size", os.getenv("BATCH_SIZE", 4))),
         "lr": float(req.get("lr", os.getenv("LR", 2e-4))),
         "max_len": int(req.get("max_len", os.getenv("MAX_LEN", 1024))),
+        # Replay anchor (anti-forgetting): a frozen, curated SFT set mixed into every round.
+        "anchor_path": (req.get("anchor") or {}).get("uri") or os.getenv("ANCHOR_SFT") or "",
+        "anchor_ratio": float(req.get("anchor_ratio", os.getenv("ANCHOR_RATIO", 0.5))),
     }
+
+
+def mix_anchor(verified: List[str], anchor: List[str], ratio: float) -> tuple:
+    """Mix a frozen REPLAY ANCHOR into the verified set at `ratio` of the verified count.
+
+    Training only on the latest verified shard drifts the model toward the recent task mix and erodes
+    everything else (catastrophic forgetting) — so "promote-never-demote" can't hold. The anchor
+    (curated base-capability examples / prior-round winners) holds the base distribution. Deterministic
+    (takes the head of the anchor). Returns (training_texts, n_verified, n_anchor).
+    """
+    n_verified = len(verified)
+    n_anchor = min(len(anchor), int(round(max(0.0, ratio) * n_verified)))
+    return verified + anchor[:n_anchor], n_verified, n_anchor
 
 
 def adapter_digest(adapter_dir: str) -> str:
@@ -139,9 +155,11 @@ def _train_once(cfg: Dict[str, Any], adapter_dir: str) -> Dict[str, Any]:
     )
     trainable = int(sum(p.numel() for p in model.parameters() if p.requires_grad))
 
-    texts = read_sft_texts(cfg["sft_path"])
-    if not texts:
+    verified = read_sft_texts(cfg["sft_path"])
+    if not verified:
         raise ValueError(f"no usable training examples in {cfg['sft_path']}")
+    anchor = read_sft_texts(cfg["anchor_path"]) if cfg.get("anchor_path") else []
+    texts, n_verified, n_anchor = mix_anchor(verified, anchor, cfg.get("anchor_ratio", 0.5))
     ds = Dataset.from_dict({"text": texts}).map(
         lambda b: tok(b["text"], truncation=True, padding="max_length", max_length=cfg["max_len"]),
         batched=True,
@@ -170,7 +188,7 @@ def _train_once(cfg: Dict[str, Any], adapter_dir: str) -> Dict[str, Any]:
     tok.save_pretrained(adapter_dir)
 
     loss = float(getattr(result, "training_loss", 0.0) or 0.0)
-    return {"train_loss": loss, "trainable_params": trainable, "examples": len(texts)}
+    return {"train_loss": loss, "trainable_params": trainable, "examples": len(texts), "n_verified": n_verified, "n_anchor": n_anchor}
 
 
 def _make_generate(base_model: str, adapter_dir: str | None):
