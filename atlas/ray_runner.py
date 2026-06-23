@@ -36,13 +36,12 @@ class RayRunner:
         fake-pass the promotion gate and ship an untrained adapter.
         """
         if bool(req.get("use_ray", False)):
-            try:
-                import ray  # type: ignore  # noqa: F401
-            except Exception:
-                ray = None  # type: ignore
-            if ray is not None:
-                # No try/except here — a trainer failure fails the job, it does not fake-pass.
-                return self._run_with_ray(job_id, req)
+            # Dispatch to the real trainer. It runs on Ray Train when a GPU is requested and Ray is
+            # present, else in-process on CPU — so a missing/broken Ray does NOT downgrade a real
+            # fine-tune to the deterministic placeholder metric (which could fake-pass the gate).
+            # Unknown entrypoints fall back to _run_local INSIDE _run_with_ray; trainer errors
+            # propagate so a failed train fails the job rather than fake-passing.
+            return self._run_with_ray(job_id, req)
         return self._run_local(job_id, req)
 
     def _run_local(self, job_id: str, req: Dict[str, Any]) -> Dict[str, Any]:

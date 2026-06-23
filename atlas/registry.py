@@ -106,6 +106,14 @@ class Registry:
                     "served_model_id": f"{req.get('tenant') or 'noetica'}-lora-{job_id}",
                 }
 
+        # LoRA fine-tunes are gradient-based optimization. Populate the SHACL-required semantic
+        # fields (mathType / calcOps / artifactRef) for an adapter job so the card CONFORMS and can
+        # actually promote — without this, every causal_lm_lora promotion fails the SHACL gate.
+        math_type = self._math_type(req) or (["optimization"] if serving else [])
+        calc_ops = self._calc_ops(req) or (["gradient-descent", "backpropagation"] if serving else [])
+        if serving and not artifact_ref:
+            artifact_ref = serving.get("adapter_path", "")
+
         card: Dict[str, Any] = {
             "model": {
                 "id": job_id,
@@ -120,8 +128,8 @@ class Registry:
                 "dataset_hash": req.get("dataset_hash", "unknown"),
             },
             "metrics": (best.get("metrics") or {}),
-            "mathType": self._math_type(req),
-            "calcOps": self._calc_ops(req),
+            "mathType": math_type,
+            "calcOps": calc_ops,
             "ledgerRef": ledger_path,
             "artifactRef": artifact_ref,
             "ledger": ledger or {},
