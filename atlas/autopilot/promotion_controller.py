@@ -62,10 +62,12 @@ class PromotionController:
                 onnx_reason = "missing onnx_check.json but runtime_check=true"
 
         # --- Gate: eval delta ---
-        # We support a simple baseline supplied in req: req["baseline_metrics"].
+        # Baseline comes from the submit req (req["baseline_metrics"]) OR, for the train→eval loop
+        # where the base score is only known after evaluation, from a baseline_eval.json artifact the
+        # trainer writes (base model's held-out score). Without either, the gate can't compare → SKIP.
         eval_ok = True
         eval_reason = "SKIP"
-        baseline = req.get("baseline_metrics") or {}
+        baseline = req.get("baseline_metrics") or self._read_json(os.path.join(jdir, "baseline_eval.json")) or {}
         metric_name = req.get("metric") or (req.get("eval") or {}).get("metric") or ""
         if baseline and metric_name and metric_name in baseline:
             try:

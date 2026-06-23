@@ -148,6 +148,32 @@ def _train_once(cfg: Dict[str, Any], adapter_dir: str) -> Dict[str, Any]:
     return {"train_loss": loss, "trainable_params": trainable, "examples": len(texts)}
 
 
+def _make_generate(base_model: str, adapter_dir: str | None):
+    """Build a greedy generate(prompt)->text callable for the base model, optionally with a LoRA
+    adapter applied — used by the held-out eval to score base+adapter and base on the same problems."""
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    tok = AutoTokenizer.from_pretrained(base_model)
+    if tok.pad_token is None:
+        tok.pad_token = tok.eos_token
+    model = AutoModelForCausalLM.from_pretrained(base_model)
+    if adapter_dir:
+        from peft import PeftModel
+
+        model = PeftModel.from_pretrained(model, adapter_dir)
+    dev = "cuda" if torch.cuda.is_available() else "cpu"
+    model.to(dev).eval()
+
+    def gen(prompt: str) -> str:
+        ids = tok(prompt, return_tensors="pt", truncation=True, max_length=1024).to(dev)
+        with torch.no_grad():
+            out = model.generate(**ids, max_new_tokens=256, do_sample=False, pad_token_id=tok.pad_token_id)
+        return tok.decode(out[0][ids["input_ids"].shape[1]:], skip_special_tokens=True)
+
+    return gen
+
+
 def train_causal_lm_lora(job_dir: str, req: Dict[str, Any]) -> Dict[str, Any]:
     """Atlas entrypoint. Fine-tunes the base on verified traces, writes the adapter + model_card,
     and returns best_metrics for the ledger + promotion gate. Uses Ray Train on GPU when available."""
@@ -178,6 +204,21 @@ def train_causal_lm_lora(job_dir: str, req: Dict[str, Any]) -> Dict[str, Any]:
             metrics = _train_once(cfg, adapter_dir)
     else:
         metrics = _train_once(cfg, adapter_dir)
+
+    # Held-out eval — score base+adapter AND base so the promotion gate can enforce promote-never-
+    # demote (an adapter that doesn't beat the base on held-out pass@1 must not promote). Best-effort:
+    # if the eval can't run, the gate falls back to SKIP rather than blocking a legitimate promote.
+    try:
+        from slate.eval.heldout_codeeval import pass_at_1
+
+        metrics["pass_at_1"] = pass_at_1(_make_generate(cfg["base_model"], adapter_dir))
+        base_score = pass_at_1(_make_generate(cfg["base_model"], None))
+        metrics["base_pass_at_1"] = base_score
+        # The baseline artifact the gate reads — base's held-out score under the compared metric key.
+        with open(os.path.join(job_dir, "baseline_eval.json"), "w", encoding="utf-8") as f:
+            json.dump({"pass_at_1": base_score}, f, indent=2)
+    except Exception:
+        pass
 
     build_model_card(job_dir, cfg, metrics)
     return metrics
