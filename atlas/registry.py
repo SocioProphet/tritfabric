@@ -85,6 +85,27 @@ class Registry:
         ledger_path = os.path.join(outdir, "ledger.json") if ledger is not None else ""
         artifact_ref = req.get("artifactRef") or req.get("artifact_ref") or onnx_cfg.get("path") or ""
 
+        # Carry the trainer's serving info (base + adapter path) into the registry card BEFORE we
+        # overwrite model_card.json below — otherwise the served adapter is lost and stage-4 serving
+        # (vllm --enable-lora) has nothing to load. This is what closes the loop: the promoted adapter
+        # becomes a discoverable, servable model.
+        serving: Dict[str, Any] = {}
+        _tcard_path = os.path.join(outdir, "model_card.json")
+        if os.path.exists(_tcard_path):
+            try:
+                with open(_tcard_path, "r", encoding="utf-8") as _f:
+                    _tcard = json.load(_f)
+            except Exception:
+                _tcard = {}
+            if _tcard.get("adapter_path") or _tcard.get("base_model"):
+                serving = {
+                    "engine": "vllm",  # served via `vllm --enable-lora`
+                    "base_model": _tcard.get("base_model", ""),
+                    "adapter_path": _tcard.get("adapter_path", ""),
+                    "method": _tcard.get("method", {}),
+                    "served_model_id": f"{req.get('tenant') or 'noetica'}-lora-{job_id}",
+                }
+
         card: Dict[str, Any] = {
             "model": {
                 "id": job_id,
@@ -113,6 +134,7 @@ class Registry:
                 "ok": onnx_check.get("ok"),
             },
             "policy_ref": req.get("policy_ref"),
+            "serving": serving,
         }
 
         # Persist JSON model card
