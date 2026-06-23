@@ -49,14 +49,17 @@ done
 # ── 3. promote (held-out eval gate: pass@1 base vs base+adapter) ──────────────────────────────────
 say "3/5 promote — held-out eval gate (promote-never-demote)"
 REP=$(curl -sf "${HDR[@]}" -X POST "${ATLAS_HTTP}/v1/jobs/${JOB}/promote")
-echo "$REP" | python3 -m json.tool 2>/dev/null || echo "$REP"
-OK=$(echo "$REP" | jget 'str(d.get("ok", (d.get("gates",{}).get("eval_delta",{}) or {}).get("ok", False))).lower()')
-if [ "$OK" != "true" ]; then
-  echo "  ⛔ GATE BLOCKED — the adapter did not beat the base on held-out pass@1. Not serving."
-  echo "     (promote-never-demote did its job; the served model is unchanged.)"
-  exit 0
-fi
-echo "  ✅ gate PASSED — adapter beats/matches base."
+[ -z "$REP" ] && { echo "  ✗ promote returned nothing (atlasd unreachable / job not promotable) — aborting"; exit 1; }
+echo "$REP" | python3 -m json.tool 2>/dev/null || { echo "  ✗ promote response is not JSON: $REP"; exit 1; }
+# Read ONLY the authoritative top-level gate decision (the AND of onnx+eval+shacl). daemon.promote
+# wraps it under "report"; a bare run_gates call has it at top level — handle both, never fall back
+# to a single sub-gate. A decision we can't read is a hard error, not a silent "blocked".
+OK=$(echo "$REP" | jget 'str((d.get("report") or d).get("ok", "")).lower()')
+case "$OK" in
+  true)  echo "  ✅ gate PASSED — adapter strictly beats base on held-out pass@1." ;;
+  false) echo "  ⛔ GATE BLOCKED — adapter did not beat base. Not serving (promote-never-demote held)."; exit 0 ;;
+  *)     echo "  ✗ could not read the gate decision from the promote response — aborting"; exit 1 ;;
+esac
 [ "$ATLAS_ONLY" = "1" ] && { echo "  --atlas-only: stopping before serving (no cluster)."; exit 0; }
 
 # ── 4. hot-load the promoted adapter into the running mesh (no redeploy) ───────────────────────────
