@@ -76,3 +76,17 @@ def test_runner_unknown_entrypoint_falls_back_local(tmp_path):
     # local fallback still produces a ledger + a (deterministic) metric
     assert "best_metrics" in out
     assert os.path.exists(tmp_path / "job-2" / "ledger.json")
+
+
+def test_trainer_error_propagates_not_fake_passed(tmp_path, monkeypatch):
+    """A real-trainer failure must raise (the job fails) — it must NOT be swallowed into the
+    deterministic placeholder metric, which could fake-pass the promotion gate."""
+    from atlas.ray_runner import RayRunner
+
+    def boom(job_dir, req):
+        raise RuntimeError("CUDA OOM")
+
+    monkeypatch.setattr(clm, "train_causal_lm_lora", boom)
+    runner = RayRunner(artifacts_root=str(tmp_path))
+    with pytest.raises(RuntimeError):
+        runner._run_with_ray("job-fail", {"entrypoint": "causal_lm_lora"})

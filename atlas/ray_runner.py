@@ -28,14 +28,21 @@ class RayRunner:
         return os.path.join(self.artifacts_root, job_id)
 
     def run(self, job_id: str, req: Dict[str, Any]) -> Dict[str, Any]:
-        """Run a job and return a dict containing best metrics and metadata."""
-        try:
-            import ray  # type: ignore  # noqa: F401
-            # If Ray is installed, we still use fallback unless explicitly enabled.
-            if bool(req.get("use_ray", False)):
+        """Run a job and return a dict containing best metrics and metadata.
+
+        Only a MISSING Ray install is a legitimate reason to fall back to the deterministic local
+        runner. Errors from a real training run inside _run_with_ray MUST propagate — otherwise a
+        failed fine-tune would be silently replaced by a plausible placeholder metric that could
+        fake-pass the promotion gate and ship an untrained adapter.
+        """
+        if bool(req.get("use_ray", False)):
+            try:
+                import ray  # type: ignore  # noqa: F401
+            except Exception:
+                ray = None  # type: ignore
+            if ray is not None:
+                # No try/except here — a trainer failure fails the job, it does not fake-pass.
                 return self._run_with_ray(job_id, req)
-        except Exception:
-            pass
         return self._run_local(job_id, req)
 
     def _run_local(self, job_id: str, req: Dict[str, Any]) -> Dict[str, Any]:
