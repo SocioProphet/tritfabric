@@ -10,27 +10,38 @@ Prices are illustrative list rates (USD/hr) for ranking; swap in a live billing 
 """
 from __future__ import annotations
 
+import json
+import os
 from typing import Any, Dict, List, Optional
 
-# provider, sku, gpu type/mem, host cpu/mem, on-demand + spot price, flags
-GPU_CATALOG: List[Dict[str, Any]] = [
-    # NeoClouds (cheap GPU layer)
-    {"provider": "nebius",    "sku": "h100-1",           "gpu": "H100-80GB",   "gpu_mem": 80, "vcpus": 20, "mem_gib": 160, "usd_hr": 2.00, "spot_hr": 1.50, "neocloud": True},
-    {"provider": "coreweave", "sku": "H100-80GB",        "gpu": "H100-80GB",   "gpu_mem": 80, "vcpus": 26, "mem_gib": 256, "usd_hr": 2.39, "spot_hr": 1.99, "neocloud": True},
-    {"provider": "crusoe",    "sku": "h100-80gb.1x",     "gpu": "H100-80GB",   "gpu_mem": 80, "vcpus": 24, "mem_gib": 234, "usd_hr": 2.45, "neocloud": True},
-    {"provider": "lambda",    "sku": "gpu_1x_h100_pcie", "gpu": "H100-80GB",   "gpu_mem": 80, "vcpus": 26, "mem_gib": 200, "usd_hr": 2.49, "neocloud": True},
-    {"provider": "nebius",    "sku": "l4-1",             "gpu": "L4",          "gpu_mem": 24, "vcpus": 8,  "mem_gib": 32,  "usd_hr": 0.55, "spot_hr": 0.30, "neocloud": True},
-    # Asian hyperscalers — Huawei Ascend = non-NVIDIA, export-control-resilient
-    {"provider": "huawei",    "sku": "Ascend-910C",      "gpu": "Ascend-910C", "gpu_mem": 64, "vcpus": 24, "mem_gib": 192, "usd_hr": 1.80, "nvidia": False},
-    {"provider": "alibaba",   "sku": "gn-h100",          "gpu": "H100-80GB",   "gpu_mem": 80, "vcpus": 26, "mem_gib": 200, "usd_hr": 2.20},
-    # Western hyperscalers
-    {"provider": "azure",     "sku": "NC24ads_A100_v4",  "gpu": "A100-80GB",   "gpu_mem": 80, "vcpus": 24, "mem_gib": 220, "usd_hr": 3.67, "spot_hr": 1.47},
-    {"provider": "gcp",       "sku": "a2-ultragpu-1g",   "gpu": "A100-80GB",   "gpu_mem": 80, "vcpus": 12, "mem_gib": 170, "usd_hr": 5.07, "spot_hr": 1.74},
-    {"provider": "aws",       "sku": "p4de/8",           "gpu": "A100-80GB",   "gpu_mem": 80, "vcpus": 12, "mem_gib": 145, "usd_hr": 5.12, "spot_hr": 1.92},
-    {"provider": "gcp",       "sku": "g2-standard-8",    "gpu": "L4",          "gpu_mem": 24, "vcpus": 8,  "mem_gib": 32,  "usd_hr": 0.85, "spot_hr": 0.28},
-    # local mesh (sovereign, $0 marginal)
-    {"provider": "local",     "sku": "atlas-local",      "gpu": "metal",       "gpu_mem": 24, "vcpus": 12, "mem_gib": 24,  "usd_hr": 0.0},
-]
+# CANONICAL catalog (prophet-core-contracts/contracts/gpu-catalog.v1.json), vendored next to this module + shared with
+# noetica's cloud-broker. Single source of truth — edit the canonical file + re-vendor; don't hand-edit rows here.
+_CATALOG_PATH = os.path.join(os.path.dirname(__file__), "gpu-catalog.v1.json")
+
+
+def _load_catalog() -> List[Dict[str, Any]]:
+    with open(_CATALOG_PATH, encoding="utf-8") as f:
+        raw = json.load(f).get("skus", [])
+    out: List[Dict[str, Any]] = []
+    for s in raw:
+        g = s.get("gpu")
+        if not g:  # GPU broker → GPU rows only
+            continue
+        row: Dict[str, Any] = {
+            "provider": s["provider"], "sku": s["name"], "gpu": g["type"], "gpu_mem": g.get("memGiB", 0),
+            "vcpus": s["vcpus"], "mem_gib": s["memGiB"], "usd_hr": s["usdPerHour"],
+        }
+        if "spotPerHour" in s:
+            row["spot_hr"] = s["spotPerHour"]
+        if s.get("neocloud"):
+            row["neocloud"] = True
+        if s.get("nvidia") is False:
+            row["nvidia"] = False
+        out.append(row)
+    return out
+
+
+GPU_CATALOG: List[Dict[str, Any]] = _load_catalog()
 
 NEOCLOUDS = ("coreweave", "lambda", "nebius", "crusoe")
 
