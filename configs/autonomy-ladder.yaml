@@ -1,0 +1,46 @@
+# Atlas/TritFabric autonomy ladder — promotion-side mirror of the canonical
+# Prophet Mesh contract (SocioProphet/prophet-mesh: specs/ai-driven-development.yaml).
+#
+# Prophet Mesh owns the ladder; TritFabric enforces the evidence gate at
+# PROMOTION time (this is the level whose `enforced_at` is tritfabric). An
+# artifact may be promoted to operate at autonomy level L only if the evidence
+# token required for L is present. Fail-closed: missing evidence blocks
+# promotion rather than silently promoting at a lower level.
+version: 0.1
+provenance:
+  canonical_repo: SocioProphet/prophet-mesh
+  canonical_spec: specs/ai-driven-development.yaml
+
+trust_kernel_gate_order:
+  - identity
+  - policy
+  - evidence
+  - attestation
+  - revocation
+  - audit
+
+levels:
+  L0:
+    label: manual
+    gate: none
+    evidence_required: none
+  L1:
+    label: assisted
+    gate: surface_disclosure
+    evidence_required: trail_log
+  L2:
+    label: automated_unit
+    gate: tests_or_review
+    evidence_required: test_result_or_review_receipt
+  L3:
+    label: automated_design
+    gate: evidence_grounded
+    evidence_required: evidence_dossier
+  L4:
+    label: automated_solution
+    gate: channel_governed
+    evidence_required: conductor_response_envelope
+  L5:
+    label: autonomous_governed
+    gate: chartered_envelope
+    evidence_required: continuous_attestation_with_revocation
