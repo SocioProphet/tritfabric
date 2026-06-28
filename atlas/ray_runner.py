@@ -29,6 +29,13 @@ class RayRunner:
 
     def run(self, job_id: str, req: Dict[str, Any]) -> Dict[str, Any]:
         """Run a job and return a dict containing best metrics and metadata."""
+        # Broker the cheapest compliant GPU and attach a KubeRay placement (recorded in the ledger).
+        if req.get("gpu") or req.get("resources"):
+            try:
+                from atlas.gpu_broker import plan_cheapest
+                req["_placement"] = plan_cheapest(req.get("resources") or req)
+            except Exception:
+                req["_placement"] = None
         try:
             import ray  # type: ignore  # noqa: F401
             # If Ray is installed, we still use fallback unless explicitly enabled.
@@ -62,6 +69,7 @@ class RayRunner:
             "best_metrics": best_metrics,
             "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "note": "local fallback runner (replace with Ray Train/Tune for real workloads)",
+            "placement": req.get("_placement"),
         }
         with open(os.path.join(self._job_dir(job_id), "ledger.json"), "w", encoding="utf-8") as f:
             json.dump(ledger, f, indent=2)
