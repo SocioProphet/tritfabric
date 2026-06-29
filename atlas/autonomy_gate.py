@@ -80,13 +80,15 @@ class AutonomyGate:
         return required in _NO_GATE or required in set(evidence)
 
     def max_admissible(self, evidence: Iterable[str]) -> int:
+        # Per-level (independent-token) semantics, consistent with _satisfied and
+        # evaluate: scan every rank and return the highest whose own evidence is
+        # present. (No early break — evidence need not be contiguous, e.g. an L4
+        # token without lower-level tokens still reports a ceiling of L4.)
         evidence = set(evidence)
         best = 0
         for rank in sorted(self._by_rank):
             if self._satisfied(rank, evidence):
                 best = rank
-            else:
-                break
         return best
 
     def evaluate(self, requested_level: str, evidence: Iterable[str]) -> AutonomyDecision:
@@ -151,4 +153,7 @@ def check_promotion_autonomy(
     gate = AutonomyGate.from_file(ladder_path)
     requested = block.get("requested_level", "L0")
     evidence = block.get("evidence", []) or []
+    # A bare string would be set()-split into characters and never match a token.
+    if isinstance(evidence, str):
+        evidence = [evidence]
     return gate.evaluate(requested, evidence)

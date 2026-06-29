@@ -30,6 +30,25 @@ def test_l0_always_admissible():
     assert gate.evaluate("L0", []).ok
 
 
+def test_ceiling_reports_highest_with_noncontiguous_evidence():
+    # An L4 token without lower-level tokens must report a ceiling of L4,
+    # consistent with evaluate("L4", [L4-token]) admitting directly.
+    gate = AutonomyGate.from_file()
+    assert gate.evaluate("L4", ["conductor_response_envelope"]).ok
+    blocked = gate.evaluate("L5", ["conductor_response_envelope"])
+    assert not blocked.ok
+    assert blocked.granted_level == "L4"
+    assert "supports up to L4" in blocked.reason
+
+
+def test_bare_string_evidence_is_coerced():
+    # A single evidence token passed as a str (not a list) must still match.
+    decision = check_promotion_autonomy({"autonomy": {"requested_level": "L1", "evidence": "trail_log"}})
+    assert decision is not None
+    assert decision.ok
+    assert decision.granted_level == "L1"
+
+
 def test_check_promotion_autonomy_noop_without_block():
     assert check_promotion_autonomy({"entrypoint": "demo"}) is None
 
