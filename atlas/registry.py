@@ -6,6 +6,7 @@ import os
 import time
 from typing import Any, Dict, List, Optional
 
+from atlas.autonomy_gate import check_promotion_autonomy
 from atlas.semantics.emit_jsonld import model_card_to_jsonld
 from atlas.semantics.emit_rdf import model_card_to_turtle
 from atlas.semantics.shacl_validate import validate_trial_graph_turtle
@@ -79,6 +80,17 @@ class Registry:
         outdir = self._job_dir(job_id)
         os.makedirs(outdir, exist_ok=True)
 
+        # Autonomy promotion gate (fail-closed). Only fires when the request
+        # declares an `autonomy` block, so existing promotion paths are
+        # unaffected. An artifact may not be promoted to operate at a requested
+        # autonomy level without the evidence that level's gate requires.
+        autonomy_decision = check_promotion_autonomy(req)
+        if autonomy_decision is not None and not autonomy_decision.ok and self.shacl_enforce:
+            raise ValueError(
+                f"Autonomy gate blocked promotion for job {job_id}: "
+                f"{autonomy_decision.reason}"
+            )
+
         onnx_cfg = (req.get("export", {}) or {}).get("onnx", {}) or {}
         onnx_check = self._read_onnx_check(job_id) or {}
         ledger = self.read_ledger(job_id)
@@ -114,6 +126,9 @@ class Registry:
             },
             "policy_ref": req.get("policy_ref"),
         }
+
+        if autonomy_decision is not None:
+            card["autonomy"] = autonomy_decision.to_dict()
 
         # Persist JSON model card
         with open(os.path.join(outdir, "model_card.json"), "w", encoding="utf-8") as f:
